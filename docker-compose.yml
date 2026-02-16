@@ -1,0 +1,20 @@
+services:
+  mockoon-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Use host network mode to allow mock servers to bind to any port
+    # This is necessary because mock servers can run on arbitrary ports
+    network_mode: host
+    volumes:
+      # Persist data directory
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    # If you need to restrict which ports are exposed, comment out network_mode: host
+    # and use ports mapping instead (but you'll need to know the mock server ports):
+    # ports:
+    #   - "3000:3000"  # UI port
+    #   - "3001:3001"  # Example mock server port 1
+    #   - "3002:3002"  # Example mock server port 2

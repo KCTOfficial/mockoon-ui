@@ -1,0 +1,255 @@
+{
+  "uuid": "6361d202-f549-4433-ab69-716c53723e7e",
+  "lastMigration": 33,
+  "name": "Bulcomp",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3005,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "2b91e585-c3e7-4351-ba1f-d27c668bbeea",
+      "type": "http",
+      "documentation": "",
+      "method": "post",
+      "endpoint": "api/twallet/v1/transactions",
+      "responses": [
+        {
+          "uuid": "cab934c2-aaa8-485a-9f6b-05fc5fd79f72",
+          "body": "{\n  \"status\": \"-1\",\n  \"message\": \"Failed\",\n  \"data\": null\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [
+            {
+              "key": "",
+              "value": ""
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "Access-Control-Allow-Methods",
+              "value": "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS"
+            },
+            {
+              "key": "Access-Control-Allow-Headers",
+              "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "a",
+              "value": "11",
+              "invert": false,
+              "operator": "equals"
+            },
+            {
+              "target": "body",
+              "modifier": "a",
+              "value": "1",
+              "invert": false,
+              "operator": "equals"
+            },
+            {
+              "target": "body",
+              "modifier": "a",
+              "value": "1",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "91e5f8f3-815b-43ea-ac46-0b8b26d3d487",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d44ba3c0-412f-4f8e-be85-9664e304c649",
+      "type": "http",
+      "documentation": "",
+      "method": "post",
+      "endpoint": "api/twallet/v1/users",
+      "responses": [
+        {
+          "uuid": "9275ec87-733d-46c8-a421-dc177a185b88",
+          "body": "{\n  \"status\": \"0\",\n  \"message\": \"Success\",\n  \"count\": 1,\n  \"data\": [\n    {\n      \"BALANCE\": \"0\",\n      \"CREATE_TIME\": \"2023-12-12 10:05:37.000\",\n      \"CUSTID\": \"202100000000032395\",\n      \"MODIFY_TIME\": \"2023-12-12 13:44:03.376\",\n      \"MSISDN\": \"6281290086155\",\n      \"STATUS_CHANGE_TIME\": \"2023-12-12 10:05:37.0\",\n      \"STATUS_CUSTOMER\": \"05\",\n      \"TRUSTLEVEL\": \"FULL SERVICE\",\n      \"OPEN_TIME\": \"\",\n      \"POINTS_BALANCE\": \"0\",\n      \"STATUS\": \"normal\",\n      \"EXPIRED_DATE\": \"\",\n      \"LOYALTY_POINT_TYPE_ID\": \"\",\n      \"HAS_PIN\": true\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "34a95473-3469-481a-ae61-c9a6804bb05d",
+          "body": "{\n  \"status\": \"-1\",\n  \"message\": \"Failed\",\n  \"count\": 0,\n  \"data\": null\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": "SEQUENTIAL",
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "4b46df80-a644-4e68-84e9-2011743c8471",
+      "type": "http",
+      "documentation": "",
+      "method": "get",
+      "endpoint": "test",
+      "responses": [
+        {
+          "uuid": "4167981d-4144-49bb-a519-1cdd7cd224cd",
+          "body": "{\n  \"success\": true\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "2b91e585-c3e7-4351-ba1f-d27c668bbeea"
+    },
+    {
+      "type": "route",
+      "uuid": "d44ba3c0-412f-4f8e-be85-9664e304c649"
+    },
+    {
+      "type": "route",
+      "uuid": "4b46df80-a644-4e68-84e9-2011743c8471"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json"
+    },
+    {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    },
+    {
+      "key": "Access-Control-Allow-Methods",
+      "value": "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS"
+    },
+    {
+      "key": "Access-Control-Allow-Headers",
+      "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
+    }
+  ],
+  "proxyReqHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "proxyResHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "data": [],
+  "callbacks": [
+    {
+      "uuid": "869f236d-def7-40fb-9780-4942bfdbdb72",
+      "id": "3sg3",
+      "uri": "",
+      "name": "Callback",
+      "documentation": "",
+      "method": "post",
+      "headers": [],
+      "bodyType": "INLINE",
+      "body": "",
+      "databucketID": "",
+      "filePath": "",
+      "sendFileAsBody": true
+    }
+  ]
+}

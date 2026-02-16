@@ -1,0 +1,16 @@
+{
+  "uuid": "f40c3c1d-9de6-4aaa-ad5f-aa21623f0fc3",
+  "lastMigration": 33,
+  "name": "Test API",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3006,
+  "hostname": "",
+  "folders": [],
+  "routes": [],
+  "rootChildren": [],
+  "data": [],
+  "environments": [],
+  "proxies": [],
+  "callbacks": []
+}

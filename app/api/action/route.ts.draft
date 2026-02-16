@@ -1,0 +1,76 @@
+import { NextRequest, NextResponse } from 'next/server';
+import pm2 from 'pm2';
+import path from 'path';
+import util from 'util';
+
+// Promisify PM2 methods
+const connect = util.promisify(pm2.connect.bind(pm2));
+const start = util.promisify(pm2.start.bind(pm2));
+const stop = util.promisify(pm2.stop.bind(pm2));
+const list = util.promisify(pm2.list.bind(pm2));
+const disconnect = pm2.disconnect.bind(pm2);
+
+export async function POST(req: NextRequest) {
+  try {
+    const { command, file, name } = await req.json();
+
+    await connect();
+
+    if (command === 'start') {
+      if (!file) return NextResponse.json({ error: 'File path required' }, { status: 400 });
+      
+      const dataFilePath = path.resolve(process.cwd(), 'data', file);
+      const envName = path.basename(file, '.json'); // Use filename as name
+
+      // Start mockoon-cli using PM2
+      // We run "npx @mockoon/cli start --data ..."
+      // In PM2 script: "npx", args: ...
+      
+      try {
+        await start({
+          script: 'npx',
+          args: ['@mockoon/cli', 'start', '--data', dataFilePath],
+          name: envName,
+          autorestart: false, // Don't restart if it crashes/stops (Mockoon handles its own daemon usually, but here we run it in foreground mode? No, mockoon-cli start daemonizes)
+          // Actually mockoon-cli start daemonizes by itself. 
+          // Attempting to run it via PM2 might be double-daemonizing.
+          // BETTER APPROACH: Run mockoon-cli in foreground if possible? 
+          // mockoon-cli start --daemon-off ? No such flag.
+          // 
+          // WAIT. User wants to use PM2 *instead* of mockoon-cli's internal daemon (which we found doesn't exist/work well for listing).
+          // We should use `mockoon-cli start` but relying on PM2 to keep track of it?
+          // If `mockoon-cli start` exits immediately (daemonizes), PM2 will think it finished.
+          //
+          // If mockoon-cli start exits immediately, PM2 is not useful unless we run the SERVER/creation directly.
+          // 
+          // Alternatives:
+          // 1. Run `mockoon-cli start` and let it exit. But then PM2 shows "stopped".
+          // 2. Use `mockoon-cli start` which runs a process.
+          //
+          // Let's look at how to run mockoon server directly provided by the package maybe?
+          // @mockoon/cli likely uses @mockoon/serverless or similar?
+          //
+          // Actually, if we use `npx @mockoon/cli start`, it starts a process. 
+          // If we want PM2 to manage it, we should probably run the underlying server command?
+          //
+          // Let's assume for now we use PM2 to execute the CLI start command.
+          // But wait, if `mockoon-cli start` spawns a detached process and exits, PM2 will see the process exit 
+          // and try to restart it if autorestart is true, or just show "stopped".
+          //
+          // We need a way to run Mockoon in foreground.
+          // `mockoon-cli start` has no foreground option in help?
+          //
+          // Let's check `mockoon-cli run`?
+          //
+          // If not, maybe we can use `@mockoon/server` package directly?
+          // This seems safer for programmatic usage.
+          // "npm install @mockoon/server" which basically allows running a mock environment.
+          
+      } catch (e: any) {
+         // handle error
+      }
+    }
+  } catch (e) {
+      // ...
+  }
+}

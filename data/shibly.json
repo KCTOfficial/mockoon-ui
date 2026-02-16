@@ -1,0 +1,283 @@
+{
+  "uuid": "503fd994-e74f-4037-a29d-edb064ba9736",
+  "lastMigration": 33,
+  "name": "Shibly",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3006,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "ad0e845a-2388-4462-a8c4-b7118ea16737",
+      "type": "http",
+      "documentation": "",
+      "method": "post",
+      "endpoint": "api/auth/test ",
+      "responses": [
+        {
+          "uuid": "1c270ed7-4c40-44bc-8aea-51f12d63b7c7",
+          "body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhZW5jIjoiYmM1OGRjNDg4M2IxOTk3NTlhZWNkNTcwZGYxYjJlYzU6ZTljOTYwOWRmN2I3MjgwNWNiZjVjYzBiNzlhOWY0ZjUwOTYyYTE1YzBiZmZiMzkwYmEyZjI0ZmEwZTZmZGQxMjk5ZTkwYTM1NThjMGNjNmE0NTlkNjFjODlkYWE1ZDhjOWNiNWJkOWNhN2NjOTczODZiZjkwN2U1Nzc4NDg3MjIiLCJpYXQiOjE3NDM3MzMxMzEsImV4cCI6MTgwNjgwNTEzMSwiYXVkIjoiTElOS0FKQSIsImlzcyI6IkNSTVNISUJMWSIsInN1YiI6IlRJQ0tFVCJ9.ZWjIujKU0fFuQyu2s4P2zgiTlqiNtGUzs41W_caeBEiZgvBKJ2tetawM7zeYCZO01QKymRoy_7JcxpRaFjdGoQ\",\n  \"issued_at\": 1743733131,\n  \"message\": \"Operation Success\",\n  \"success\": true,\n  \"token_type\": \"Bearer\"\n}",
+          "latency": 0,
+          "statusCode": 418,
+          "label": "eqwe",
+          "headers": [
+            {
+              "key": "X-Verify",
+              "value": "success"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "5c32848e-c367-4364-a995-c60328b3790c",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "e700b422-124e-4e58-9513-8c960b7a2a4e",
+      "type": "http",
+      "documentation": "",
+      "method": "post",
+      "endpoint": "api/ticket/create",
+      "responses": [
+        {
+          "uuid": "49f4e2e6-8411-4d24-b465-93675227daa3",
+          "body": "{\n  \"case_number\": \"0003000002328\",\n  \"code\": 202,\n  \"id\": 7307,\n  \"message\": \"Ticket has been updated\",\n  \"subject\": \"Fraud Detection System (FDS)\",\n  \"success\": true\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "8651ffb3-c400-4f79-97c7-c88e9d498f61",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "73be6c9d-6c60-44bd-9e8e-b119a81ddf74",
+          "body": "{\n        \"message\": \"Something went wrong\",\n        \"success\": false\n    }",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "4d5baa7d-b6e6-4fd3-8638-9e241c135b21",
+      "type": "http",
+      "documentation": "",
+      "method": "get",
+      "endpoint": "new-route",
+      "responses": [
+        {
+          "uuid": "d2824ed3-96f8-449d-b23d-8d44ffd11c8f",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null
+    },
+    {
+      "uuid": "33f3e52a-51d4-4429-bb55-4bacc7c8af6f",
+      "type": "ws",
+      "documentation": "",
+      "method": "get",
+      "endpoint": "websocket",
+      "responses": [
+        {
+          "uuid": "509b531b-86aa-4811-8fb1-0312b41cf603",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 101,
+          "label": "Upgrade",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d5fdb3d6-dfd2-4ab2-a1de-f33f65333f3b",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": "UNICAST",
+      "streamingInterval": 100
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "ad0e845a-2388-4462-a8c4-b7118ea16737"
+    },
+    {
+      "type": "route",
+      "uuid": "e700b422-124e-4e58-9513-8c960b7a2a4e"
+    },
+    {
+      "type": "route",
+      "uuid": "33f3e52a-51d4-4429-bb55-4bacc7c8af6f"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json"
+    },
+    {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    },
+    {
+      "key": "Access-Control-Allow-Methods",
+      "value": "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS"
+    },
+    {
+      "key": "Access-Control-Allow-Headers",
+      "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
+    }
+  ],
+  "proxyReqHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "proxyResHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "data": [
+    {
+      "uuid": "d65caf0c-7d01-468f-ab5f-8382011c60ee",
+      "id": "t64g",
+      "name": "New data",
+      "documentation": "",
+      "value": "[\n]"
+    }
+  ],
+  "callbacks": []
+}
