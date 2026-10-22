@@ -1,7 +1,5 @@
-'use client';
-
-import React from 'react';
 import { ResponseRule, LogicalOperators } from '@/types/mockoon';
+import { PlusIcon, XIcon } from '@primer/octicons-react';
 
 interface RulesListProps {
     rules: ResponseRule[];
@@ -57,46 +55,43 @@ export default function RulesList({ rules, onChange, operator, onOperatorChange 
     };
 
     return (
-        <div className="flex flex-col gap-4 p-4">
-            <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-col gap-3 p-4">
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wider">Rules</h3>
+                    <h3 className="text-sm font-semibold text-fg-default">Rules</h3>
                     {rules.length > 1 && (
                         <select
                             value={operator}
                             onChange={(e) => onOperatorChange(e.target.value as LogicalOperators)}
-                            className="bg-surface text-xs border border-border-custom rounded px-2 py-1 focus:outline-none"
+                            className="form-control form-control-sm"
+                            aria-label="Rules operator"
                         >
                             <option value="OR">Match Any (OR)</option>
                             <option value="AND">Match All (AND)</option>
                         </select>
                     )}
                 </div>
-                <button
-                    onClick={handleAddRule}
-                    className="text-xs px-2 py-1 bg-accent/10 hover:bg-accent/20 text-accent rounded border border-accent/20 transition-colors flex items-center gap-1"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                    </svg>
+                <button onClick={handleAddRule} className="btn btn-sm">
+                    <PlusIcon />
                     Add rule
                 </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
                 {rules.length === 0 ? (
-                    <div className="text-center py-8 border-2 border-dashed border-border-custom rounded-lg text-text-muted">
+                    <div className="text-center py-8 px-4 border border-dashed border-border-custom rounded-md text-fg-muted">
                         <p className="text-sm">No rules defined. This response will be served by default or based on selection mode.</p>
                     </div>
                 ) : (
                     rules.map((rule, index) => (
-                        <div key={index} className="flex flex-col gap-2 p-3 bg-surface border border-border-custom rounded-lg group border-l-4 border-l-accent/30 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div key={index} className="Box p-3 flex flex-col gap-2">
                             <div className="flex gap-2 items-center">
                                 {/* Invert Toggle */}
                                 <button
                                     onClick={() => handleUpdateRule(index, { invert: !rule.invert })}
-                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${rule.invert ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-surface text-text-secondary border border-border-custom'}`}
+                                    className={`btn btn-sm font-mono font-semibold w-12 ${rule.invert ? '!text-danger !border-danger-muted !bg-danger-subtle' : ''}`}
                                     title="Invert rule"
+                                    aria-pressed={rule.invert}
                                 >
                                     {rule.invert ? 'NOT' : 'IF'}
                                 </button>
@@ -105,7 +100,8 @@ export default function RulesList({ rules, onChange, operator, onOperatorChange 
                                 <select
                                     value={rule.target}
                                     onChange={(e) => handleUpdateRule(index, { target: e.target.value as any })}
-                                    className="flex-1 bg-input border border-border-custom rounded px-2 py-1.5 text-sm focus:outline-none focus:border-accent"
+                                    className="form-control form-control-sm flex-1 min-w-0"
+                                    aria-label="Rule target"
                                 >
                                     {TARGETS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                 </select>
@@ -117,26 +113,27 @@ export default function RulesList({ rules, onChange, operator, onOperatorChange 
                                         placeholder="Property path / key"
                                         value={rule.modifier}
                                         onChange={(e) => handleUpdateRule(index, { modifier: e.target.value })}
-                                        className="flex-1 bg-input border border-border-custom rounded px-2 py-1.5 text-sm focus:outline-none focus:border-accent"
+                                        className="form-control form-control-sm flex-1 min-w-0 font-mono"
                                     />
                                 )}
 
                                 <button
                                     onClick={() => handleRemoveRule(index)}
-                                    className="p-1 text-text-muted hover:text-red-400 transition-colors"
+                                    className="btn btn-invisible btn-icon btn-sm hover:!text-danger"
+                                    title="Remove rule"
+                                    aria-label="Remove rule"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
+                                    <XIcon />
                                 </button>
                             </div>
 
-                            <div className="flex gap-2 items-center">
+                            <div className="flex gap-2 items-center pl-14">
                                 {/* Operator */}
                                 <select
                                     value={rule.operator}
                                     onChange={(e) => handleUpdateRule(index, { operator: e.target.value as any })}
-                                    className="w-1/3 bg-input border border-border-custom rounded px-2 py-1.5 text-sm focus:outline-none focus:border-accent italic text-text-secondary"
+                                    className="form-control form-control-sm w-1/3"
+                                    aria-label="Rule operator"
                                 >
                                     {OPERATORS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
@@ -148,7 +145,7 @@ export default function RulesList({ rules, onChange, operator, onOperatorChange 
                                         placeholder="Expected value / Regex"
                                         value={rule.value}
                                         onChange={(e) => handleUpdateRule(index, { value: e.target.value })}
-                                        className="flex-1 bg-input border border-border-custom rounded px-2 py-1.5 text-sm focus:outline-none focus:border-accent"
+                                        className="form-control form-control-sm flex-1 min-w-0 font-mono"
                                     />
                                 )}
                             </div>

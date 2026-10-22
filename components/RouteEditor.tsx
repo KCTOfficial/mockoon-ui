@@ -1,10 +1,9 @@
-'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import { Route, Response, Header, ResponseRule, LogicalOperators, ResponseMode } from '@/types/mockoon';
 import HeadersList from './shared/HeadersList';
 import RulesList from './shared/RulesList';
 import MonacoEditorWrapper from './shared/MonacoEditorWrapper';
+import { AlertIcon, CheckIcon, ClockIcon, PlusIcon, RowsIcon, TrashIcon } from '@primer/octicons-react';
 
 // Response Tab Component with inline editing
 interface ResponseTabProps {
@@ -52,14 +51,9 @@ function ResponseTab({ response, idx, isActive, onSelect, onRename }: ResponseTa
         <button
             onClick={onSelect}
             onDoubleClick={handleDoubleClick}
-            className={`
-                flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-all whitespace-nowrap
-                ${isActive
-                    ? 'bg-active text-accent border border-accent/30 shadow-sm'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-hover'}
-            `}
+            className={`btn btn-sm whitespace-nowrap ${isActive ? '!bg-accent-subtle !border-accent-muted text-accent' : 'btn-invisible'}`}
         >
-            <span className={`w-2 h-2 rounded-full ${response.default ? 'bg-accent' : 'bg-text-disabled'}`} title={response.default ? 'Default Response' : 'Response'} />
+            <span className={`w-2 h-2 rounded-full ${response.default ? 'bg-accent' : 'bg-fg-subtle'}`} title={response.default ? 'Default Response' : 'Response'} />
             {isEditing ? (
                 <input
                     ref={inputRef}
@@ -69,7 +63,7 @@ function ResponseTab({ response, idx, isActive, onSelect, onRename }: ResponseTa
                     onBlur={handleBlur}
                     onKeyDown={handleKeyDown}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-input border border-accent rounded px-1 py-0.5 w-20 text-text-primary outline-none"
+                    className="form-control form-control-sm !h-5 !px-1 w-24"
                 />
             ) : (
                 <>{response.label || `Response ${idx + 1}`} ({Number(response.statusCode) || 0})</>
@@ -191,11 +185,12 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
 
     if (!draftRoute || !activeResponse) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center text-text-muted bg-editor">
-                <svg className="w-16 h-16 mb-4 opacity-10" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z" />
-                </svg>
-                <p className="font-light">Select a route to view its details</p>
+            <div className="flex-1 flex flex-col items-center justify-center bg-canvas p-8">
+                <div className="flex flex-col items-center text-center max-w-sm">
+                    <span className="text-fg-muted mb-4"><RowsIcon size={24} /></span>
+                    <h3 className="text-xl font-semibold text-fg-default mb-1">No route selected</h3>
+                    <p className="text-sm text-fg-muted">Select a route from the list to view and edit its responses.</p>
+                </div>
             </div>
         );
     }
@@ -327,31 +322,40 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
         }
     };
 
+    const methodValue = draftRoute.method.toLowerCase();
+    const methodColor: Record<string, string> = {
+        get: 'text-get', post: 'text-post', put: 'text-put', patch: 'text-patch', delete: 'text-delete',
+    };
+
     return (
-        <div className="flex-1 flex flex-col bg-editor overflow-hidden">
+        <div className="flex-1 flex flex-col bg-canvas overflow-hidden">
             {/* 1. Top Header (Endpoint Config) */}
-            <div className="px-4 py-3 border-b border-border-custom bg-sidebar/50 flex items-center gap-2">
-                <select
-                    value={draftRoute.method.toLowerCase()}
-                    onChange={(e) => handleUpdateRoute({ method: e.target.value as any })}
-                    className="px-2 py-1 rounded bg-surface text-xs font-bold uppercase text-accent border border-border-custom min-w-[80px] text-center outline-none"
-                >
-                    {['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].map(m => (
-                        <option key={m} value={m}>{m.toUpperCase()}</option>
-                    ))}
-                </select>
-                <div className="flex-1 bg-input border border-border-custom rounded px-3 py-1 flex items-center text-sm focus-within:border-accent transition-colors">
-                    <span className="text-text-muted mr-1">/</span>
-                    <input
-                        type="text"
-                        value={draftRoute.endpoint}
-                        onChange={(e) => handleUpdateRoute({ endpoint: e.target.value })}
-                        className="bg-transparent text-text-primary font-mono outline-none w-full"
-                    />
+            <div className="px-4 py-3 border-b border-border-custom flex items-center gap-2">
+                <div className="flex flex-1 min-w-0">
+                    <select
+                        value={methodValue}
+                        onChange={(e) => handleUpdateRoute({ method: e.target.value as any })}
+                        className={`form-control !rounded-r-none font-mono font-semibold text-xs uppercase w-[104px] flex-shrink-0 ${methodColor[methodValue] || 'text-fg-default'}`}
+                        aria-label="HTTP method"
+                    >
+                        {['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].map(m => (
+                            <option key={m} value={m}>{m.toUpperCase()}</option>
+                        ))}
+                    </select>
+                    <label className="form-control !rounded-l-none -ml-px flex-1 min-w-0 flex items-center !py-0 cursor-text">
+                        <span className="text-fg-muted mr-1 font-mono">/</span>
+                        <input
+                            type="text"
+                            value={draftRoute.endpoint}
+                            onChange={(e) => handleUpdateRoute({ endpoint: e.target.value })}
+                            className="bg-transparent text-fg-default font-mono outline-none w-full text-sm"
+                            aria-label="Endpoint path"
+                        />
+                    </label>
                 </div>
 
                 {/* Response Mode Selector */}
-                <div className="flex items-center gap-0.5 border-l border-border-custom pl-2 ml-2">
+                <div className="SegmentedControl flex-shrink-0" role="radiogroup" aria-label="Response mode">
                     {RESPONSE_MODES.map((mode) => {
                         const isActive = draftRoute.responseMode === mode.value;
                         const isDisabled = mode.value === 'FALLBACK' && draftRoute.type === 'ws';
@@ -361,12 +365,10 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                                 key={mode.label}
                                 onClick={() => !isDisabled && handleUpdateRoute({ responseMode: mode.value })}
                                 disabled={isDisabled}
-                                className={`p-1.5 rounded transition-all ${isActive
-                                    ? 'bg-accent/20 text-accent'
-                                    : isDisabled
-                                        ? 'text-text-disabled cursor-not-allowed'
-                                        : 'text-text-secondary hover:text-text-primary hover:bg-hover'
-                                    }`}
+                                role="radio"
+                                aria-checked={isActive}
+                                aria-label={mode.label}
+                                className={`SegmentedControl-item !px-2 ${isActive ? 'is-selected text-accent' : isDisabled ? 'text-fg-disabled !cursor-not-allowed' : 'text-fg-muted'}`}
                             >
                                 <div className="relative group">
                                     {mode.icon === 'shuffle' && (
@@ -407,11 +409,9 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                                         </svg>
                                     )}
                                     {/* Tooltip - only shows when hovering the icon */}
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-surface border border-border-custom rounded text-xs text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg min-w-[180px]">
-                                        <div className="font-bold text-text-primary mb-1">{mode.label}</div>
-                                        <div className="text-[11px] leading-relaxed">{mode.tooltip}</div>
-                                        {/* Arrow */}
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-px border-4 border-transparent border-b-border-custom" />
+                                    <div className="Tooltip absolute top-full left-1/2 -translate-x-1/2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 w-56 text-left font-normal">
+                                        <div className="font-semibold mb-0.5">{mode.label}</div>
+                                        <div className="leading-relaxed">{mode.tooltip}</div>
                                     </div>
                                 </div>
                             </button>
@@ -420,43 +420,30 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                 </div>
 
                 {hasChanges ? (
-                    <div className="flex items-center gap-2 ml-4 animate-in fade-in slide-in-from-right-4">
-                        <button
-                            onClick={handleDiscard}
-                            disabled={isSaving}
-                            className="px-3 py-1 text-[10px] font-bold uppercase text-text-secondary hover:text-text-primary transition-colors"
-                        >
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button onClick={handleDiscard} disabled={isSaving} className="btn btn-sm">
                             Discard
                         </button>
-                        <button
-                            onClick={persistSave}
-                            disabled={isSaving}
-                            className="bg-accent hover:bg-accent/90 text-white px-4 py-1 rounded text-[10px] font-bold uppercase shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
-                        >
-                            {isSaving ? (
+                        <button onClick={persistSave} disabled={isSaving} className="btn btn-sm btn-primary">
+                            {isSaving ? 'Saving…' : (
                                 <>
-                                    <div className="w-2 h-2 rounded-full bg-white opacity-40 animate-pulse" />
-                                    Saving...
-                                </>
-                            ) : (
-                                <>
-                                    Save Changes
-                                    <span className="text-[8px] font-normal opacity-70 border border-white/30 rounded px-1">⌘S</span>
+                                    Save changes
+                                    <kbd className="text-[10px] font-mono opacity-80 border border-white/30 rounded px-1 leading-4">⌘S</kbd>
                                 </>
                             )}
                         </button>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 px-2 text-[10px] text-text-secondary font-medium uppercase tracking-widest border-l border-border-custom ml-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <span className="Label text-success border-success-muted flex-shrink-0">
+                        <CheckIcon size={12} className="mr-1" />
                         Synced
-                    </div>
+                    </span>
                 )}
             </div>
 
             {/* 2. Response Selector & Actions */}
-            <div className="px-4 py-2 bg-surface/30 border-b border-border-custom flex items-center justify-between gap-4">
-                <div className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar py-1">
+            <div className="px-4 py-2 bg-canvas-muted border-b border-border-custom flex items-center justify-between gap-4">
+                <div className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar">
                     {draftRoute.responses.map((res, idx) => (
                         <ResponseTab
                             key={res.uuid}
@@ -469,66 +456,56 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleAddResponse}
-                        className="p-1.5 text-text-secondary hover:bg-hover hover:text-accent rounded transition-colors"
-                        title="Add response"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                        </svg>
+                <div className="flex items-center gap-1">
+                    <button onClick={handleAddResponse} className="btn btn-invisible btn-icon btn-sm" title="Add response" aria-label="Add response">
+                        <PlusIcon />
                     </button>
                     <button
                         onClick={handleDeleteResponse}
                         disabled={route && route.responses.length <= 1}
-                        className="p-1.5 text-text-secondary hover:bg-hover hover:text-red-400 rounded transition-colors disabled:opacity-30"
+                        className="btn btn-invisible btn-icon btn-sm hover:!text-danger"
                         title="Delete current response"
+                        aria-label="Delete current response"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
+                        <TrashIcon />
                     </button>
                 </div>
             </div>
 
             {/* 3. Tabs & Response Settings */}
-            <div className="px-4 pt-4 border-b border-border-custom flex items-center justify-between bg-middle">
-                <div className="flex gap-6">
+            <div className="px-4 border-b border-border-custom flex items-center justify-between gap-4">
+                <nav className="UnderlineNav min-h-0 h-12 -ml-2" aria-label="Response">
                     {(['body', 'headers', 'rules', 'settings'] as const).map((tab) => {
                         // Check if rules tab should be disabled
                         const rulesDisablingModes = ['RANDOM', 'SEQUENTIAL', 'DISABLE_RULES'];
                         const isRulesDisabled = tab === 'rules' && rulesDisablingModes.includes(draftRoute.responseMode || '');
+                        const count = tab === 'headers' ? activeResponse.headers.length : tab === 'rules' ? activeResponse.rules.length : undefined;
 
                         return (
                             <button
                                 key={tab}
                                 onClick={() => !isRulesDisabled && setActiveTab(tab)}
                                 disabled={isRulesDisabled}
-                                className={`text-[11px] font-bold uppercase tracking-wider pb-3 border-b-2 transition-colors ${isRulesDisabled
-                                    ? 'text-text-disabled border-transparent cursor-not-allowed'
-                                    : activeTab === tab
-                                        ? 'text-accent border-accent'
-                                        : 'text-text-secondary border-transparent hover:text-text-primary hover:border-border-custom'
-                                    }`}
+                                className={`UnderlineNav-item ${activeTab === tab && !isRulesDisabled ? 'is-selected' : ''}`}
                                 title={isRulesDisabled ? 'Rules are disabled by current response mode' : undefined}
                             >
-                                {tab === 'body' ? 'Status & Body' : tab}
-                                {isRulesDisabled && (
-                                    <span className="ml-1 text-[9px] text-amber-500">⚠</span>
-                                )}
+                                <span className="UnderlineNav-inner capitalize">
+                                    {tab === 'body' ? 'Status & Body' : tab}
+                                    {count !== undefined && count > 0 && <span className="Counter">{count}</span>}
+                                    {isRulesDisabled && <AlertIcon size={12} className="!text-attention" />}
+                                </span>
                             </button>
                         );
                     })}
-                </div>
+                </nav>
 
-                <div className="flex items-center gap-4 text-xs pb-3">
-                    <div className="flex items-center gap-2">
-                        <span className="text-text-secondary uppercase text-[10px] font-bold">Status</span>
+                <div className="flex items-center gap-4 text-xs">
+                    <label className="flex items-center gap-2">
+                        <span className="text-fg-muted font-semibold">Status</span>
                         <select
                             value={activeResponse.statusCode}
                             onChange={(e) => handleUpdateResponse({ statusCode: parseInt(e.target.value) })}
-                            className="bg-surface px-2 py-1 rounded text-text-primary border border-border-custom w-48 focus:border-accent outline-none text-xs font-bold cursor-pointer"
+                            className="form-control form-control-sm w-52"
                         >
                             <optgroup label="2xx Success">
                                 <option value="200">200 - OK</option>
@@ -558,25 +535,25 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                                 <option value="504">504 - Gateway Timeout</option>
                             </optgroup>
                         </select>
-                    </div>
+                    </label>
                     <div className="flex items-center gap-2">
-                        <div className="relative group">
-                            <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <div className="relative group text-fg-muted">
+                            <ClockIcon size={14} />
                             {/* Latency Tooltip - only shows when hovering the icon */}
-                            <div className="absolute top-full right-0 mt-2 px-3 py-2 bg-surface border border-border-custom rounded text-xs text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg min-w-[200px]">
-                                <div className="font-bold text-text-primary mb-1">Response Latency</div>
-                                <div className="text-[11px] leading-relaxed">Add artificial delay before the response is sent. Useful for testing loading states and slow network conditions.</div>
-                                <div className="absolute bottom-full right-4 -mb-px border-4 border-transparent border-b-border-custom" />
+                            <div className="Tooltip absolute top-full right-0 mt-2 opacity-0 group-hover:opacity-100 transition-opacity z-50 w-56">
+                                <div className="font-semibold mb-0.5">Response Latency</div>
+                                <div className="leading-relaxed">Add artificial delay before the response is sent. Useful for testing loading states and slow network conditions.</div>
                             </div>
                         </div>
                         <input
                             type="number"
                             value={activeResponse.latency}
                             onChange={(e) => handleUpdateResponse({ latency: parseInt(e.target.value) || 0 })}
-                            className="bg-surface text-text-secondary font-mono w-16 px-2 py-1 rounded border border-transparent focus:border-accent outline-none focus:text-text-primary text-xs"
+                            className="form-control form-control-sm font-mono w-20"
                             min="0"
+                            aria-label="Latency in milliseconds"
                         />
-                        <span className="text-text-secondary font-mono text-xs">ms</span>
+                        <span className="text-fg-muted font-mono">ms</span>
                     </div>
                 </div>
             </div>
@@ -584,19 +561,23 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
             {/* 4. Tab Content */}
             <div className="flex-1 overflow-auto">
                 {activeTab === 'body' && (
-                    <div className="h-full flex flex-col p-4 animate-in fade-in duration-300">
-                        <div className="mb-4 flex items-center justify-between">
-                            <label className="text-sm font-medium text-text-secondary">Response Body</label>
-                            <div className="flex gap-2">
+                    <div className="h-full flex flex-col p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-fg-default">Response body</span>
+                            <div className="SegmentedControl" role="radiogroup" aria-label="Body type">
                                 <button
                                     onClick={() => handleUpdateResponse({ bodyType: 'INLINE' })}
-                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-colors ${activeResponse.bodyType === 'INLINE' ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-input border-border-custom text-text-secondary hover:text-text-primary'}`}
+                                    role="radio"
+                                    aria-checked={activeResponse.bodyType === 'INLINE'}
+                                    className={`SegmentedControl-item ${activeResponse.bodyType === 'INLINE' ? 'is-selected' : ''}`}
                                 >
                                     Inline
                                 </button>
                                 <button
                                     onClick={() => handleUpdateResponse({ bodyType: 'FILE' })}
-                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-colors ${activeResponse.bodyType === 'FILE' ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-input border-border-custom text-text-secondary hover:text-text-primary'}`}
+                                    role="radio"
+                                    aria-checked={activeResponse.bodyType === 'FILE'}
+                                    className={`SegmentedControl-item ${activeResponse.bodyType === 'FILE' ? 'is-selected' : ''}`}
                                 >
                                     File
                                 </button>
@@ -614,14 +595,14 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                                 />
                             </div>
                         ) : (
-                            <div className="p-8 border-2 border-dashed border-border-custom rounded-lg text-center">
-                                <p className="text-text-secondary text-sm mb-4">File serving is available. Select a file from your disk.</p>
+                            <div className="Box p-8 border-dashed text-center">
+                                <p className="text-fg-muted text-sm mb-4">File serving is available. Select a file from your disk.</p>
                                 <input
                                     type="text"
                                     placeholder="File path..."
                                     value={activeResponse.filePath}
                                     onChange={(e) => handleUpdateResponse({ filePath: e.target.value })}
-                                    className="w-full max-w-md bg-input border border-border-custom rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                                    className="form-control w-full max-w-md font-mono"
                                 />
                             </div>
                         )}
@@ -629,53 +610,49 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                 )}
 
                 {activeTab === 'headers' && (
-                    <div className="animate-in fade-in duration-300">
-                        <HeadersList
-                            headers={activeResponse.headers}
-                            onChange={(headers) => handleUpdateResponse({ headers })}
-                        />
-                    </div>
+                    <HeadersList
+                        headers={activeResponse.headers}
+                        onChange={(headers) => handleUpdateResponse({ headers })}
+                    />
                 )}
 
                 {activeTab === 'rules' && (
-                    <div className="animate-in fade-in duration-300">
-                        <RulesList
-                            rules={activeResponse.rules}
-                            operator={activeResponse.rulesOperator}
-                            onChange={(rules) => handleUpdateResponse({ rules })}
-                            onOperatorChange={(rulesOperator) => handleUpdateResponse({ rulesOperator })}
-                        />
-                    </div>
+                    <RulesList
+                        rules={activeResponse.rules}
+                        operator={activeResponse.rulesOperator}
+                        onChange={(rules) => handleUpdateResponse({ rules })}
+                        onOperatorChange={(rulesOperator) => handleUpdateResponse({ rulesOperator })}
+                    />
                 )}
 
                 {activeTab === 'settings' && (
-                    <div className="p-6 space-y-6 animate-in fade-in duration-300">
-                        <div className="space-y-4 max-w-2xl">
-                            <h3 className="text-sm font-medium text-text-secondary uppercase tracking-widest">Response Settings</h3>
-
-                            <div className="flex items-center justify-between p-3 bg-surface rounded-lg border border-border-custom">
+                    <div className="p-4 max-w-3xl space-y-6">
+                        <div className="Box">
+                            <div className="Box-row flex items-center justify-between gap-4">
                                 <div>
-                                    <p className="text-sm font-medium text-text-primary">Default Response</p>
-                                    <p className="text-xs text-text-secondary">Serve this response if no other rules match.</p>
+                                    <p className="text-sm font-semibold text-fg-default">Default response</p>
+                                    <p className="text-xs text-fg-muted">Serve this response if no other rules match.</p>
                                 </div>
                                 <button
+                                    role="switch"
+                                    aria-checked={!!activeResponse.default}
+                                    aria-label="Default response"
                                     onClick={() => handleUpdateResponse({ default: !activeResponse.default })}
-                                    className={`w-10 h-5 rounded-full relative transition-colors ${activeResponse.default ? 'bg-accent' : 'bg-text-disabled'}`}
-                                >
-                                    <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${activeResponse.default ? 'right-1' : 'left-1'}`} />
-                                </button>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-text-secondary uppercase">Response Label</label>
-                                <input
-                                    type="text"
-                                    placeholder="Label for this response..."
-                                    value={activeResponse.label}
-                                    onChange={(e) => handleUpdateResponse({ label: e.target.value })}
-                                    className="w-full bg-input border border-border-custom rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                                    className="ToggleSwitch"
                                 />
                             </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="response-label" className="form-label">Response label</label>
+                            <input
+                                id="response-label"
+                                type="text"
+                                placeholder="Label for this response..."
+                                value={activeResponse.label}
+                                onChange={(e) => handleUpdateResponse({ label: e.target.value })}
+                                className="form-control w-full"
+                            />
                         </div>
                     </div>
                 )}

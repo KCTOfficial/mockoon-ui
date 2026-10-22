@@ -1,18 +1,14 @@
 import type { Config } from 'jest';
-import nextJest from 'next/jest';
 
-const createJestConfig = nextJest({
-    // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
-    dir: './',
-});
-
-// Add any custom config to be passed to Jest
-const customJestConfig: Config = {
-    setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+const config: Config = {
+    setupFilesAfterEnv: ['<rootDir>/jest.setup.tsx'],
     testEnvironment: 'jest-environment-jsdom',
     moduleNameMapper: {
-        // Handle module aliases (this will be automatically configured for you soon)
+        // Handle module aliases
         '^@/(.*)$': '<rootDir>/$1',
+        // jsdom would otherwise pick yaml's ESM browser build
+        '^yaml$': '<rootDir>/node_modules/yaml/dist/index.js',
+        '^uuid$': '<rootDir>/__mocks__/uuid.js',
         // Handle CSS modules (with CSS modules)
         '^.+\\.module\\.(css|sass|scss)$': 'identity-obj-proxy',
         // Handle CSS imports (without CSS modules)
@@ -20,7 +16,7 @@ const customJestConfig: Config = {
         // Handle image imports
         '^.+\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/__mocks__/fileMock.js',
     },
-    testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/', '<rootDir>/mockoon/'],
+    testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/dist/', '<rootDir>/mockoon/'],
     transform: {
         // Use ts-jest for TypeScript files
         '^.+\\.(ts|tsx)$': ['ts-jest', {
@@ -41,12 +37,13 @@ const customJestConfig: Config = {
         '^.+\\.module\\.(css|sass|scss)$',
     ],
     collectCoverageFrom: [
-        'app/**/*.{ts,tsx}',
+        'server/**/*.ts',
+        'src/**/*.{ts,tsx}',
         'components/**/*.{ts,tsx}',
         'lib/**/*.ts',
         '!**/*.d.ts',
         '!**/node_modules/**',
-        '!**/.next/**',
+        '!**/dist/**',
         '!**/mockoon/**',
     ],
     coverageThreshold: {
@@ -59,5 +56,4 @@ const customJestConfig: Config = {
     },
 };
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-export default createJestConfig(customJestConfig);
+export default config;

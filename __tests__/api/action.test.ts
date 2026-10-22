@@ -1,8 +1,7 @@
 /**
  * @jest-environment node
  */
-import { POST, GET } from '@/app/api/action/route';
-import { NextRequest } from 'next/server';
+import { POST, GET } from '@/server/api/action';
 
 // Mock PM2
 jest.mock('pm2', () => ({
@@ -39,7 +38,7 @@ describe('/api/action', () => {
 
     describe('POST - start server', () => {
         it('should start a server with valid parameters', async () => {
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'start',
@@ -58,7 +57,7 @@ describe('/api/action', () => {
         });
 
         it('should reject request without action', async () => {
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -74,7 +73,7 @@ describe('/api/action', () => {
         });
 
         it('should reject request without filename for start action', async () => {
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'start',
@@ -92,7 +91,7 @@ describe('/api/action', () => {
         it('should handle PM2 start errors', async () => {
             pm2.start.mockImplementation((opts, cb) => cb(new Error('PM2 start failed')));
 
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'start',
@@ -111,7 +110,7 @@ describe('/api/action', () => {
 
     describe('POST - stop server', () => {
         it('should stop a running server', async () => {
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'stop',
@@ -131,7 +130,7 @@ describe('/api/action', () => {
         it('should handle PM2 stop errors', async () => {
             pm2.stop.mockImplementation((name, cb) => cb(new Error('Process not found')));
 
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'stop',
@@ -149,7 +148,7 @@ describe('/api/action', () => {
 
     describe('POST - restart server', () => {
         it('should restart a running server', async () => {
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'restart',
@@ -170,7 +169,7 @@ describe('/api/action', () => {
 
     describe('POST - invalid action', () => {
         it('should reject invalid action', async () => {
-            const request = new NextRequest('http://localhost/api/action', {
+            const request = new Request('http://localhost/api/action', {
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'invalid',

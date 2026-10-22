@@ -1,8 +1,7 @@
 /**
  * @jest-environment node
  */
-import { POST, DELETE } from '@/app/api/environments/routes/route';
-import { NextRequest } from 'next/server';
+import { POST, DELETE } from '@/server/api/environments/routes';
 
 // Mock fs module
 jest.mock('fs', () => {
@@ -77,7 +76,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -101,7 +100,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -123,7 +122,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -143,7 +142,7 @@ describe('/api/environments/routes', () => {
         });
 
         it('should reject request without filename', async () => {
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({ action: 'create' }),
             });
@@ -158,7 +157,7 @@ describe('/api/environments/routes', () => {
         it('should return 404 for non-existent file', async () => {
             fs.existsSync.mockReturnValue(false);
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'nonexistent.json',
@@ -177,7 +176,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -201,7 +200,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -227,7 +226,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -250,7 +249,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -275,7 +274,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'POST',
                 body: JSON.stringify({
                     filename: 'test.json',
@@ -297,7 +296,7 @@ describe('/api/environments/routes', () => {
             fs.existsSync.mockReturnValue(true);
             fs.readFileSync.mockReturnValue(JSON.stringify(sampleEnvironment));
 
-            const request = new NextRequest('http://localhost/api/environments/routes', {
+            const request = new Request('http://localhost/api/environments/routes', {
                 method: 'DELETE',
                 body: JSON.stringify({
                     filename: 'test.json',

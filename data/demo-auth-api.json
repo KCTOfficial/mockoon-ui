@@ -1,0 +1,225 @@
+{
+  "uuid": "90b4fde5-5c40-4595-820e-99c7f74262c4",
+  "lastMigration": 33,
+  "name": "Demo Auth API",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 7003,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "bcd69008-1c00-4899-9a49-fb4c5fb875f7",
+      "type": "http",
+      "documentation": "Login with {\"username\": \"demo\", \"password\": \"demo123\"}",
+      "method": "post",
+      "endpoint": "auth/login",
+      "responses": [
+        {
+          "uuid": "aa349d3c-955e-4900-ab8b-9f23b6eb63b5",
+          "body": "{\n  \"error\": \"Invalid username or password\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Invalid credentials",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "0d9070b4-1d10-4aed-896f-a934cfab176f",
+          "body": "{\n  \"accessToken\": \"dummy-token-123\",\n  \"tokenType\": \"Bearer\",\n  \"expiresIn\": 3600\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Login OK (demo / demo123)",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "username",
+              "value": "demo",
+              "invert": false,
+              "operator": "equals"
+            },
+            {
+              "target": "body",
+              "modifier": "password",
+              "value": "demo123",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a8e17b54-da0a-4e8a-96c8-750cfb5df5f4",
+      "type": "http",
+      "documentation": "Requires header Authorization: Bearer dummy-token-123",
+      "method": "get",
+      "endpoint": "me",
+      "responses": [
+        {
+          "uuid": "d5ee9fba-b43f-4ba8-b934-1d4593194636",
+          "body": "{\n  \"error\": \"Missing or invalid token\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Unauthorized",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "3053e896-abd7-4531-ae29-a2d1ad62012e",
+          "body": "{\n  \"id\": 1,\n  \"username\": \"demo\",\n  \"name\": \"Demo User\",\n  \"email\": \"demo@example.com\",\n  \"roles\": [\n    \"user\"\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Profile (Bearer dummy-token-123)",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "Authorization",
+              "value": "Bearer dummy-token-123",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d5b4bfdc-f0dc-4a53-b22b-52ba2f52ae18",
+      "type": "http",
+      "documentation": "Health check",
+      "method": "get",
+      "endpoint": "health",
+      "responses": [
+        {
+          "uuid": "651641b1-b429-47cf-8c02-4ef266a9255d",
+          "body": "{\n  \"status\": \"ok\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "OK",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "bcd69008-1c00-4899-9a49-fb4c5fb875f7"
+    },
+    {
+      "type": "route",
+      "uuid": "a8e17b54-da0a-4e8a-96c8-750cfb5df5f4"
+    },
+    {
+      "type": "route",
+      "uuid": "d5b4bfdc-f0dc-4a53-b22b-52ba2f52ae18"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json"
+    },
+    {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    },
+    {
+      "key": "Access-Control-Allow-Methods",
+      "value": "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS"
+    },
+    {
+      "key": "Access-Control-Allow-Headers",
+      "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
+    }
+  ],
+  "proxyReqHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "proxyResHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "data": [],
+  "callbacks": []
+}

@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useRef, useEffect } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -36,25 +34,30 @@ export default function MonacoEditorWrapper({
         editorRef.current = editor;
         monacoRef.current = monaco;
 
-        // Custom dark theme to match Mockoon
+        // Themes matching GitHub's Primer dark/light canvas
         monaco.editor.defineTheme('mockoon-dark', {
             base: 'vs-dark',
             inherit: true,
             rules: [],
             colors: {
-                'editor.background': '#1e1e1e',
-                'editor.lineHighlightBackground': '#2a2d2e',
+                'editor.background': '#0d1117',
+                'editor.lineHighlightBackground': '#151b23',
+                'editorLineNumber.foreground': '#656c76',
+                'editorLineNumber.activeForeground': '#f0f6fc',
+                'editor.selectionBackground': '#1f6feb55',
             }
         });
 
-        // Custom light theme
         monaco.editor.defineTheme('mockoon-light', {
             base: 'vs',
             inherit: true,
             rules: [],
             colors: {
                 'editor.background': '#ffffff',
-                'editor.lineHighlightBackground': '#f0f0f0',
+                'editor.lineHighlightBackground': '#f6f8fa',
+                'editorLineNumber.foreground': '#818b98',
+                'editorLineNumber.activeForeground': '#1f2328',
+                'editor.selectionBackground': '#0969da33',
             }
         });
 
@@ -75,14 +78,14 @@ export default function MonacoEditorWrapper({
     };
 
     return (
-        <div className={`flex flex-col border border-border-custom rounded-lg overflow-hidden bg-input group ${height === '100%' ? 'h-full' : ''}`}>
-            <div className="flex items-center justify-between px-3 py-1 bg-surface border-b border-border-custom shrink-0">
+        <div className={`flex flex-col border border-border-custom rounded-md overflow-hidden bg-canvas group ${height === '100%' ? 'h-full' : ''}`}>
+            <div className="flex items-center justify-between px-2 py-1.5 bg-canvas-muted border-b border-border-custom shrink-0">
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Lang:</span>
+                    <span className="text-xs text-fg-muted">Language</span>
                     <select
                         value={language}
                         onChange={(e) => onLanguageChange?.(e.target.value)}
-                        className="bg-transparent text-[10px] font-bold text-accent uppercase tracking-widest outline-none cursor-pointer hover:text-text-primary transition-colors"
+                        className="form-control form-control-sm !h-6 !py-0 text-xs"
                         disabled={!onLanguageChange}
                     >
                         {SUPPORTED_LANGUAGES.map(lang => (
@@ -90,10 +93,7 @@ export default function MonacoEditorWrapper({
                         ))}
                     </select>
                 </div>
-                <button
-                    onClick={handleBeautify}
-                    className="text-[10px] px-2 py-0.5 rounded bg-hover hover:bg-active text-text-secondary transition-colors"
-                >
+                <button onClick={handleBeautify} className="btn btn-sm !h-6">
                     Beautify
                 </button>
             </div>
@@ -112,6 +112,7 @@ export default function MonacoEditorWrapper({
                         minimap: { enabled: false },
                         scrollBeyondLastLine: false,
                         fontSize: 13,
+                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
                         lineNumbers: 'on',
                         roundedSelection: false,
                         automaticLayout: true,

@@ -1,44 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Sidebar from '@/components/Sidebar';
+import { Environment } from '@/types/mockoon';
 
-// Mock data
-const mockEnvironments = [
-    {
-        uuid: 'env-1',
-        name: 'Test Environment 1',
-        port: 3000,
-        routes: [{ uuid: 'route-1' }, { uuid: 'route-2' }],
-        folders: [],
-        rootChildren: [],
-        data: [],
-        callbacks: [],
-        filename: 'test-env-1.json',
-        lastMigration: 33,
-        endpointPrefix: '',
-        latency: 0,
-        hostname: '',
-        environments: [],
-        proxies: [],
-    },
-    {
-        uuid: 'env-2',
-        name: 'Test Environment 2',
-        port: 3001,
-        routes: [],
-        folders: [],
-        rootChildren: [],
-        data: [],
-        callbacks: [],
-        filename: 'test-env-2.json',
-        lastMigration: 33,
-        endpointPrefix: '',
-        latency: 0,
-        hostname: '',
-        environments: [],
-        proxies: [],
-    },
-];
+const makeEnv = (uuid: string, name: string, port: number) =>
+    ({ uuid, name, port, routes: [], data: [], filename: `${uuid}.json` }) as unknown as Environment;
+
+const mockEnvironments = [makeEnv('env-1', 'Alpha API', 3000), makeEnv('env-2', 'Beta API', 3001)];
 
 describe('Sidebar Component', () => {
     const mockProps = {
@@ -52,61 +20,78 @@ describe('Sidebar Component', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        localStorage.clear();
     });
 
-    it('should render environment icons', () => {
+    it('renders environments with name, initials and port when expanded', () => {
         render(<Sidebar {...mockProps} />);
 
-        // Check for environment initials
-        expect(screen.getByText('TE')).toBeInTheDocument(); // Test Environment -> TE
+        expect(screen.getByText('Alpha API')).toBeInTheDocument();
+        expect(screen.getByText('AL')).toBeInTheDocument();
+        expect(screen.getByText(':3001')).toBeInTheDocument();
     });
 
-    it('should call onSelectEnv when clicking an environment', async () => {
+    it('calls onSelectEnv when clicking an environment', async () => {
         const user = userEvent.setup();
         render(<Sidebar {...mockProps} />);
 
-        const envButton = screen.getByText('TE').closest('div');
-        if (envButton) {
-            await user.click(envButton);
-        }
+        await user.click(screen.getByText('Beta API'));
 
-        expect(mockProps.onSelectEnv).toHaveBeenCalledWith('env-1');
+        expect(mockProps.onSelectEnv).toHaveBeenCalledWith('env-2');
     });
 
-    it('should highlight active environment', () => {
+    it('marks the active environment', () => {
         render(<Sidebar {...mockProps} activeEnvId="env-1" />);
 
-        const envButton = screen.getByText('TE').closest('div');
-        expect(envButton).toHaveClass('bg-blue-600');
+        expect(screen.getByText('Alpha API').closest('button')).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByText('Beta API').closest('button')).not.toHaveAttribute('aria-current');
     });
 
-    it('should call onAddEnv when clicking add button', async () => {
+    it('calls onAddEnv when clicking the create button', async () => {
         const user = userEvent.setup();
-        render(<Sidebar {...mockProps} />);
+        render(<Sidebar {...mockProps} environments={[]} />);
 
-        // Find the add button (+ icon)
-        const addButton = screen.getByTitle('Add Environment');
-        await user.click(addButton);
+        await user.click(screen.getByRole('button', { name: 'Create new environment' }));
 
         expect(mockProps.onAddEnv).toHaveBeenCalled();
     });
 
-    it('should render empty state when no environments', () => {
-        render(<Sidebar {...mockProps} environments={[]} />);
+    it('collapses to initials only, shows a tooltip on hover and remembers the state', async () => {
+        const user = userEvent.setup();
+        const { unmount } = render(<Sidebar {...mockProps} />);
 
-        // Should still render the add button
-        expect(screen.getByTitle('Add Environment')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+
+        expect(screen.queryByText('Alpha API')).not.toBeInTheDocument();
+        expect(screen.getByText('AL')).toBeInTheDocument();
+        expect(localStorage.getItem('sidebarCollapsed')).toBe('true');
+
+        await user.hover(screen.getByRole('button', { name: 'Alpha API' }));
+        expect(screen.getByRole('tooltip')).toHaveTextContent('Alpha API');
+
+        unmount();
+        render(<Sidebar {...mockProps} />);
+        expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
     });
 
-    it('should display environment name tooltip on hover', async () => {
+    it('asks to delete an environment without selecting it', async () => {
         const user = userEvent.setup();
-        render(<Sidebar {...mockProps} />);
+        const onDeleteEnv = jest.fn();
+        render(<Sidebar {...mockProps} onDeleteEnv={onDeleteEnv} />);
 
-        const envButton = screen.getByText('TE').closest('div');
-        if (envButton) {
-            await user.hover(envButton);
-            // Tooltip should appear
-            expect(screen.getByText('Test Environment 1')).toBeInTheDocument();
-        }
+        await user.click(screen.getByRole('button', { name: 'Delete Beta API' }));
+
+        expect(onDeleteEnv).toHaveBeenCalledWith('env-2');
+        expect(mockProps.onSelectEnv).not.toHaveBeenCalled();
+    });
+
+    it('passes the selected file to onImportEnv', async () => {
+        const user = userEvent.setup();
+        const { container } = render(<Sidebar {...mockProps} />);
+        const file = new File(['{}'], 'env.json', { type: 'application/json' });
+
+        await user.upload(container.querySelector('input[accept=".json"]') as HTMLInputElement, file);
+
+        expect(mockProps.onImportEnv).toHaveBeenCalledWith(file);
     });
 });

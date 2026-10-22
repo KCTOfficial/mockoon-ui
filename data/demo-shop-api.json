@@ -1,0 +1,269 @@
+{
+  "uuid": "d9e86580-3d81-43fa-925e-cc375e789dc1",
+  "lastMigration": 33,
+  "name": "Demo Shop API",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 7002,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "23fe2df6-c381-4ea4-8cb6-ba5053e47e73",
+      "type": "http",
+      "documentation": "Simple health/hello check",
+      "method": "get",
+      "endpoint": "hello",
+      "responses": [
+        {
+          "uuid": "8c1db1e4-0467-4cb9-83f2-0cd29c6edb44",
+          "body": "{\n  \"message\": \"Hello from Mockoon\",\n  \"time\": \"{{now 'yyyy-MM-dd HH:mm:ss'}}\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Hello",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "fdb12bb8-d41d-42f9-8822-56480816ed92",
+      "type": "http",
+      "documentation": "List of 5 random products",
+      "method": "get",
+      "endpoint": "products",
+      "responses": [
+        {
+          "uuid": "bf73be01-ca20-4f49-9d80-05fc6487fcda",
+          "body": "[\n  {{#repeat 5 comma=true}}\n  {\n    \"id\": {{add @index 1}},\n    \"name\": \"{{faker 'commerce.productName'}}\",\n    \"price\": {{faker 'number.int' min=10000 max=500000}},\n    \"stock\": {{faker 'number.int' max=100}}\n  }\n  {{/repeat}}\n]",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Product list",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "00291c16-60d5-462c-b6cf-9d2967a346fd",
+      "type": "http",
+      "documentation": "Product detail; id 0 returns 404",
+      "method": "get",
+      "endpoint": "products/:id",
+      "responses": [
+        {
+          "uuid": "25fe67e9-ab9f-428c-a45a-5eac1783ccce",
+          "body": "{\n  \"id\": \"{{urlParam 'id'}}\",\n  \"name\": \"{{faker 'commerce.productName'}}\",\n  \"price\": 150000,\n  \"description\": \"{{faker 'commerce.productDescription'}}\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Product found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "4a6ccc14-2ea0-4a39-b803-600c019e209d",
+          "body": "{\n  \"error\": \"Product not found\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "Not found (id = 0)",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "params",
+              "modifier": "id",
+              "value": "0",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "6294b6e1-5075-4f4a-90a6-2b05d3a592f3",
+      "type": "http",
+      "documentation": "Create an order from {\"productId\", \"quantity\"}",
+      "method": "post",
+      "endpoint": "orders",
+      "responses": [
+        {
+          "uuid": "39485727-07a7-47e3-82cc-020832de60c3",
+          "body": "{\n  \"orderId\": \"{{faker 'string.uuid'}}\",\n  \"productId\": \"{{body 'productId'}}\",\n  \"quantity\": \"{{body 'quantity' 1}}\",\n  \"status\": \"PENDING\"\n}",
+          "latency": 300,
+          "statusCode": 201,
+          "label": "Order created",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "bfb2cddf-3ce1-4387-bddb-0369cd2afa07",
+      "type": "crud",
+      "documentation": "CRUD over the Customers data bucket (GET, POST, PUT, PATCH, DELETE)",
+      "method": "",
+      "endpoint": "customers",
+      "responses": [
+        {
+          "uuid": "6e932812-a71b-4a9e-8290-f137f1fa1962",
+          "body": "{}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [],
+          "bodyType": "DATABUCKET",
+          "filePath": "",
+          "databucketID": "oezb",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "23fe2df6-c381-4ea4-8cb6-ba5053e47e73"
+    },
+    {
+      "type": "route",
+      "uuid": "fdb12bb8-d41d-42f9-8822-56480816ed92"
+    },
+    {
+      "type": "route",
+      "uuid": "00291c16-60d5-462c-b6cf-9d2967a346fd"
+    },
+    {
+      "type": "route",
+      "uuid": "6294b6e1-5075-4f4a-90a6-2b05d3a592f3"
+    },
+    {
+      "type": "route",
+      "uuid": "bfb2cddf-3ce1-4387-bddb-0369cd2afa07"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json"
+    },
+    {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    },
+    {
+      "key": "Access-Control-Allow-Methods",
+      "value": "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS"
+    },
+    {
+      "key": "Access-Control-Allow-Headers",
+      "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
+    }
+  ],
+  "proxyReqHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "proxyResHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "data": [
+    {
+      "uuid": "7475768e-2e3b-49eb-b057-6b9edd4a9d21",
+      "id": "oezb",
+      "name": "Customers",
+      "documentation": "Dummy customers served by the CRUD /customers route",
+      "value": "[\n  {\n    \"id\": 1,\n    \"name\": \"Budi Santoso\",\n    \"email\": \"budi@example.com\",\n    \"city\": \"Jakarta\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Siti Rahma\",\n    \"email\": \"siti@example.com\",\n    \"city\": \"Bandung\"\n  },\n  {\n    \"id\": 3,\n    \"name\": \"Andi Wijaya\",\n    \"email\": \"andi@example.com\",\n    \"city\": \"Surabaya\"\n  }\n]"
+    }
+  ],
+  "callbacks": []
+}

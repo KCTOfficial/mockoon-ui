@@ -1,8 +1,7 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { Environment, DataBucket } from '@/types/mockoon';
 import MonacoEditorWrapper from './shared/MonacoEditorWrapper';
+import { DatabaseIcon, PlusIcon, XIcon } from '@primer/octicons-react';
 
 interface DataBucketsEditorProps {
     environment: Environment;
@@ -89,47 +88,41 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
     };
 
     return (
-        <div className="flex-1 flex bg-editor overflow-hidden animate-in fade-in duration-300">
+        <div className="flex-1 flex bg-canvas overflow-hidden">
             {/* Sidebar: Bucket List */}
-            <div className="w-64 border-r border-border-custom bg-sidebar/30 flex flex-col">
-                <div className="p-4 flex items-center justify-between border-b border-border-custom">
-                    <h2 className="text-xs font-bold text-text-secondary uppercase tracking-widest">Data Buckets</h2>
-                    <button
-                        onClick={handleCreateBucket}
-                        className="p-1 text-accent hover:bg-accent/10 rounded transition-colors"
-                        title="Add bucket"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                        </svg>
+            <div className="w-64 border-r border-border-custom bg-canvas flex flex-col">
+                <div className="h-12 px-3 flex items-center justify-between border-b border-border-custom bg-canvas-muted">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-semibold text-fg-default">Data buckets</h2>
+                        <span className="Counter">{environment.data.length}</span>
+                    </div>
+                    <button onClick={handleCreateBucket} className="btn btn-sm btn-icon" title="Add bucket" aria-label="Add bucket">
+                        <PlusIcon />
                     </button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
                     {environment.data.length === 0 ? (
-                        <p className="text-[10px] text-text-muted italic text-center py-8">No buckets</p>
+                        <p className="text-xs text-fg-muted text-center py-8">No buckets</p>
                     ) : (
                         environment.data.map(bucket => (
                             <div
                                 key={bucket.uuid}
                                 onClick={() => setSelectedBucketUuid(bucket.uuid)}
-                                className={`
-                                    group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all
-                                    ${selectedBucketUuid === bucket.uuid ? 'bg-accent/10 border border-accent/20' : 'hover:bg-hover border border-transparent'}
-                                `}
+                                className={`NavList-item group !cursor-pointer justify-between ${selectedBucketUuid === bucket.uuid ? 'is-selected' : ''}`}
                             >
                                 <div className="flex flex-col min-w-0">
-                                    <span className={`text-sm truncate ${selectedBucketUuid === bucket.uuid ? 'text-accent' : 'text-text-primary'}`}>
+                                    <span className="text-sm truncate text-fg-default">
                                         {bucket.name || 'Unnamed bucket'}
                                     </span>
-                                    <span className="text-[10px] text-text-secondary font-mono truncate">{bucket.id}</span>
+                                    <span className="text-xs text-fg-muted font-mono font-normal truncate">{bucket.id}</span>
                                 </div>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleDeleteBucket(bucket.uuid); }}
-                                    className="p-1 text-text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                    className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 opacity-0 group-hover:opacity-100 hover:!text-danger"
+                                    title="Delete bucket"
+                                    aria-label="Delete bucket"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
+                                    <XIcon size={14} />
                                 </button>
                             </div>
                         ))
@@ -138,42 +131,39 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
             </div>
 
             {/* Main Content: Bucket Editor */}
-            <div className="flex-1 flex flex-col min-w-0 bg-editor">
+            <div className="flex-1 flex flex-col min-w-0 bg-canvas">
                 {activeBucket ? (
-                    <div className="flex-1 flex flex-col p-8 overflow-auto">
-                        <div className="flex items-center justify-between mb-8 pb-4 border-b border-border-custom">
-                            <div className="flex-1 space-y-4 max-w-2xl">
-                                <div className="flex gap-4">
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest ml-1">Bucket Name</label>
-                                        <input
-                                            type="text"
-                                            value={activeBucket.name}
-                                            onChange={(e) => handleUpdateBucket(activeBucket.uuid, { name: e.target.value })}
-                                            className="w-full bg-input border border-border-custom rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-accent"
-                                        />
-                                    </div>
-                                    <div className="w-32 space-y-1">
-                                        <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest ml-1">ID</label>
-                                        <input
-                                            type="text"
-                                            value={activeBucket.id}
-                                            disabled
-                                            className="w-full bg-input border border-border-custom rounded-lg px-4 py-2 text-xs font-mono text-text-muted cursor-not-allowed"
-                                        />
-                                    </div>
+                    <div className="flex-1 flex flex-col p-6 overflow-auto">
+                        <div className="flex items-end justify-between gap-4 mb-6 pb-4 border-b border-border-muted">
+                            <div className="flex-1 flex gap-4 max-w-2xl">
+                                <div className="flex-1">
+                                    <label htmlFor="bucket-name" className="form-label">Bucket name</label>
+                                    <input
+                                        id="bucket-name"
+                                        type="text"
+                                        value={activeBucket.name}
+                                        onChange={(e) => handleUpdateBucket(activeBucket.uuid, { name: e.target.value })}
+                                        className="form-control w-full"
+                                    />
+                                </div>
+                                <div className="w-32">
+                                    <label htmlFor="bucket-id" className="form-label">ID</label>
+                                    <input
+                                        id="bucket-id"
+                                        type="text"
+                                        value={activeBucket.id}
+                                        disabled
+                                        className="form-control w-full font-mono"
+                                    />
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1">
-                                <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
-                                <span className="text-[9px] uppercase font-bold text-text-muted">
-                                    {isSaving ? 'Saving' : 'Saved'}
-                                </span>
-                            </div>
+                            <span className={`Label mb-1.5 ${isSaving ? 'text-attention border-attention-muted' : 'text-success border-success-muted'}`}>
+                                {isSaving ? 'Saving' : 'Saved'}
+                            </span>
                         </div>
 
-                        <div className="flex-1 flex flex-col gap-4">
-                            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest ml-1">Content (JSON)</label>
+                        <div className="flex-1 flex flex-col">
+                            <span className="form-label">Content (JSON)</span>
                             <div className="flex-1 min-h-[500px]">
                                 <MonacoEditorWrapper
                                     height="100%"
@@ -184,11 +174,10 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
                         </div>
                     </div>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-text-muted">
-                        <svg className="w-20 h-20 mb-6 opacity-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                        </svg>
-                        <p className="font-light tracking-wide">Select or create a data bucket to start</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                        <span className="text-fg-muted mb-4"><DatabaseIcon size={24} /></span>
+                        <h3 className="text-xl font-semibold text-fg-default mb-1">No data bucket selected</h3>
+                        <p className="text-sm text-fg-muted">Select or create a data bucket to start.</p>
                     </div>
                 )}
             </div>

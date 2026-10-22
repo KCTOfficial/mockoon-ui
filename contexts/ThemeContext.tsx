@@ -1,5 +1,3 @@
-"use client";
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light" | "system";
@@ -13,16 +11,15 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>("system");
-    const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
-
-    useEffect(() => {
-        // Load theme from localStorage
-        const savedTheme = localStorage.getItem("theme") as Theme | null;
-        if (savedTheme) {
-            setTheme(savedTheme);
+    // Client-only app: read the saved theme synchronously so the first render already uses it
+    const [theme, setTheme] = useState<Theme>(() => {
+        try {
+            return (localStorage.getItem("theme") as Theme | null) || "system";
+        } catch {
+            return "system";
         }
-    }, []);
+    });
+    const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
 
     useEffect(() => {
         const root = document.documentElement;
@@ -44,7 +41,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         root.classList.add(resolved);
 
         // Save to localStorage
-        localStorage.setItem("theme", theme);
+        try {
+            localStorage.setItem("theme", theme);
+        } catch {
+            // Storage unavailable (private mode); theme just won't persist
+        }
     }, [theme]);
 
     // Listen for system theme changes

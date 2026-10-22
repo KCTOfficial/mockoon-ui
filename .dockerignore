@@ -4,10 +4,9 @@ node_modules
 .pnp.js
 
 # Build outputs
-.next
-out
-build
 dist
+coverage
+.swc
 
 # Development files
 *.log
@@ -37,7 +36,6 @@ docker-compose*.yml
 
 # Test files
 __tests__
-coverage
 *.test.ts
 *.test.tsx
 *.spec.ts
@@ -47,8 +45,15 @@ coverage
 *.md
 !README.md
 
+# Env files hold credentials: pass them at runtime instead
+.env
+.env.*
+!.env.example
+
+# Local backups of data/ and deleted environments
+data.bak-*
+data/.deleted
+
 # Misc
-.env*.local
 .eslintcache
 *.tsbuildinfo
-next-env.d.ts

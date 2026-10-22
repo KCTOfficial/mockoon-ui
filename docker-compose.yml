@@ -11,6 +11,10 @@ services:
       - ./data:/app/data
     environment:
       - NODE_ENV=production
+      # Dashboard login - set these in a .env file next to docker-compose.yml (see .env.example)
+      - MOCKOON_UI_USERNAME=${MOCKOON_UI_USERNAME}
+      - MOCKOON_UI_PASSWORD=${MOCKOON_UI_PASSWORD}
+      - MOCKOON_UI_AUTH_SECRET=${MOCKOON_UI_AUTH_SECRET}
     restart: unless-stopped
     # If you need to restrict which ports are exposed, comment out network_mode: host
     # and use ports mapping instead (but you'll need to know the mock server ports):

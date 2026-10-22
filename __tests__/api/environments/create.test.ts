@@ -1,8 +1,7 @@
 /**
  * @jest-environment node
  */
-import { POST, GET } from '@/app/api/environments/create/route';
-import { NextRequest } from 'next/server';
+import { POST, GET } from '@/server/api/environments/create';
 
 // Mock fs module
 jest.mock('fs', () => {
@@ -27,7 +26,7 @@ describe('/api/environments/create', () => {
         it('should create a new environment with valid data', async () => {
             fs.existsSync.mockReturnValue(false);
 
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Test Environment', port: 3001 }),
             });
@@ -45,7 +44,7 @@ describe('/api/environments/create', () => {
         });
 
         it('should reject request without name', async () => {
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ port: 3001 }),
             });
@@ -58,7 +57,7 @@ describe('/api/environments/create', () => {
         });
 
         it('should reject request with invalid name type', async () => {
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 123, port: 3001 }),
             });
@@ -71,7 +70,7 @@ describe('/api/environments/create', () => {
         });
 
         it('should reject request without port', async () => {
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Test' }),
             });
@@ -84,7 +83,7 @@ describe('/api/environments/create', () => {
         });
 
         it('should reject request with port out of range (too low)', async () => {
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Test', port: 0 }),
             });
@@ -97,7 +96,7 @@ describe('/api/environments/create', () => {
         });
 
         it('should reject request with port out of range (too high)', async () => {
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Test', port: 65536 }),
             });
@@ -112,7 +111,7 @@ describe('/api/environments/create', () => {
         it('should reject duplicate environment name', async () => {
             fs.existsSync.mockReturnValue(true);
 
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Existing Environment', port: 3001 }),
             });
@@ -135,7 +134,7 @@ describe('/api/environments/create', () => {
             ];
 
             for (const { name, expected } of testCases) {
-                const request = new NextRequest('http://localhost/api/environments/create', {
+                const request = new Request('http://localhost/api/environments/create', {
                     method: 'POST',
                     body: JSON.stringify({ name, port: 3001 }),
                 });
@@ -150,7 +149,7 @@ describe('/api/environments/create', () => {
         it('should create environment with correct default structure', async () => {
             fs.existsSync.mockReturnValue(false);
 
-            const request = new NextRequest('http://localhost/api/environments/create', {
+            const request = new Request('http://localhost/api/environments/create', {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Test', port: 3001 }),
             });
@@ -166,8 +165,9 @@ describe('/api/environments/create', () => {
             expect(data.environment.routes).toEqual([]);
             expect(data.environment.rootChildren).toEqual([]);
             expect(data.environment.data).toEqual([]);
-            expect(data.environment.environments).toEqual([]);
-            expect(data.environment.proxies).toEqual([]);
+            expect(data.environment.tlsOptions.enabled).toBe(false);
+            expect(data.environment.headers).toEqual([]);
+            expect(data.environment.proxyMode).toBe(false);
             expect(data.environment.callbacks).toEqual([]);
         });
     });

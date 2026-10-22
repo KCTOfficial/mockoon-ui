@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Environment, Route, LogEntry } from '@/types/mockoon';
 import Sidebar, { MainView } from './Sidebar';
@@ -11,12 +9,26 @@ import EnvironmentSettings from './EnvironmentSettings';
 import DataBucketsEditor from './DataBucketsEditor';
 import NewEnvironmentModal from './NewEnvironmentModal';
 import { ThemeToggle } from './ThemeToggle';
+import { LogoutButton } from './LogoutButton';
+import {
+    CheckCircleIcon,
+    DatabaseIcon,
+    GearIcon,
+    ListUnorderedIcon,
+    PlayIcon,
+    ServerIcon,
+    SquareFillIcon,
+    SyncIcon,
+    XCircleIcon,
+    XIcon,
+} from '@primer/octicons-react';
 
 interface DashboardProps {
     initialEnvironments: Environment[];
+    onLogout: () => Promise<void>;
 }
 
-export default function Dashboard({ initialEnvironments }: DashboardProps) {
+export default function Dashboard({ initialEnvironments, onLogout }: DashboardProps) {
     const [environments, setEnvironments] = useState<Environment[]>(initialEnvironments);
     const [activeEnvId, setActiveEnvId] = useState<string>(initialEnvironments[0]?.uuid || '');
     const [activeRouteId, setActiveRouteId] = useState<string>('');
@@ -24,6 +36,8 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
     const [activeLogsOpen, setActiveLogsOpen] = useState(false);
     const [activeLogsHeight, setActiveLogsHeight] = useState(250);
     const [isNewEnvModalOpen, setIsNewEnvModalOpen] = useState(false);
+    const [envToDelete, setEnvToDelete] = useState<Environment | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -62,6 +76,10 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
 
     const activeRoute = activeEnv?.routes.find(route => route.uuid === activeRouteId);
 
+    // The server names PM2 processes after the environment file (without .json), not the display name
+    const envFile = activeEnv ? (activeEnv.filename || `${activeEnv.name}.json`) : '';
+    const processName = envFile.replace(/\.json$/, '');
+
     // Server Control Logic
     const [isRunning, setIsRunning] = useState(false);
     const [isServerLoading, setIsServerLoading] = useState(false);
@@ -74,7 +92,7 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
                 const res = await fetch('/api/action');
                 const data = await res.json();
                 if (data.processes) {
-                    const isEnvRunning = data.processes.some((p: any) => p.name === activeEnv.name && p.status === 'online');
+                    const isEnvRunning = data.processes.some((p: any) => p.name === processName && p.status === 'online');
                     setIsRunning(isEnvRunning);
                 }
             } catch (error) {
@@ -86,7 +104,7 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
         const interval = setInterval(checkStatus, 10000);
 
         return () => clearInterval(interval);
-    }, [activeEnv?.uuid, activeEnv?.name]);
+    }, [activeEnv?.uuid, processName]);
 
     const toggleServer = async () => {
         if (!activeEnv) return;
@@ -97,14 +115,14 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
                 await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: 'stop', name: activeEnv.name })
+                    body: JSON.stringify({ command: 'stop', name: processName })
                 });
                 setIsRunning(false);
             } else {
                 await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: 'start', file: activeEnv.filename || `${activeEnv.name}.json` })
+                    body: JSON.stringify({ command: 'start', file: envFile })
                 });
                 setIsRunning(true);
             }
@@ -123,13 +141,13 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
             await fetch('/api/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: 'stop', name: activeEnv.name })
+                body: JSON.stringify({ command: 'stop', name: processName })
             });
             await new Promise(r => setTimeout(r, 1000));
             await fetch('/api/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: 'start', file: activeEnv.filename || `${activeEnv.name}.json` })
+                body: JSON.stringify({ command: 'start', file: envFile })
             });
             showNotification('Server restarted successfully');
         } catch (error) {
@@ -144,11 +162,11 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
         if (!activeEnv) return;
 
         const envId = activeEnv.uuid;
-        const envName = activeEnv.name;
 
         if (!eventSources.current[envId]) {
-            const hasLogs = allLogs[envId] && allLogs[envId].length > 0;
-            const url = `/api/logs/stream?name=${encodeURIComponent(envName)}${hasLogs ? '&skipHistory=true' : ''}`;
+            // Only real log lines count; a "Process not found" message must not make us skip the history
+            const hasLogs = (allLogs[envId] || []).some(log => log.type);
+            const url = `/api/logs/stream?name=${encodeURIComponent(processName)}${hasLogs ? '&skipHistory=true' : ''}`;
 
             const es = new EventSource(url);
 
@@ -176,7 +194,8 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
 
             eventSources.current[envId] = es;
         }
-    }, [activeEnvId, environments]);
+        // isRunning: a stream opened before the server ran ends with "Process not found"; reconnect once it is up
+    }, [activeEnvId, environments, isRunning]);
 
     useEffect(() => {
         return () => {
@@ -236,6 +255,44 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
         }
     };
 
+    const handleDeleteEnvironment = async () => {
+        if (!envToDelete) return;
+        const target = envToDelete;
+        setIsDeleting(true);
+        try {
+            const res = await fetch('/api/environments/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: target.filename || `${target.name}.json` })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to delete environment');
+            }
+
+            // Drop its log stream and logs, then move the selection to another environment
+            eventSources.current[target.uuid]?.close();
+            delete eventSources.current[target.uuid];
+            setAllLogs(prev => {
+                const next = { ...prev };
+                delete next[target.uuid];
+                return next;
+            });
+            const remaining = environments.filter(env => env.uuid !== target.uuid);
+            setEnvironments(remaining);
+            if (activeEnvId === target.uuid) {
+                setActiveEnvId(remaining[0]?.uuid || '');
+                setActiveRouteId('');
+            }
+            setEnvToDelete(null);
+            showNotification(`Environment "${target.name}" deleted`);
+        } catch (error: any) {
+            showNotification(error.message || 'Failed to delete environment', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handleImportOpenAPI = async (file: File) => {
         try {
             const formData = new FormData();
@@ -261,93 +318,92 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
         }
     };
 
+    const tabs: { id: MainView; label: string; icon: React.ReactNode; count?: number }[] = [
+        { id: 'routes', label: 'Routes', icon: <ListUnorderedIcon />, count: activeEnv?.routes.length },
+        { id: 'databuckets', label: 'Data Buckets', icon: <DatabaseIcon />, count: activeEnv?.data.length },
+        { id: 'settings', label: 'Settings', icon: <GearIcon /> },
+    ];
+
     return (
-        <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-            {/* Sidebar: Environments Only */}
-            <Sidebar
-                environments={environments}
-                activeEnvId={activeEnvId}
-                onSelectEnv={setActiveEnvId}
-                onAddEnv={() => setIsNewEnvModalOpen(true)}
-                onImportEnv={handleImportEnvironment}
-                onImportOpenAPI={handleImportOpenAPI}
-            />
-
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Global Header */}
-                <header className="h-14 border-b border-border-custom bg-sidebar/50 backdrop-blur-md flex items-center justify-between px-6 flex-shrink-0 z-10">
-                    <div className="flex items-center gap-4">
-                        {/* Environment Title with Server Controls */}
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-sm font-bold text-text-primary leading-none">{activeEnv?.name || 'No Environment'}</h1>
-                            <div className="flex items-center gap-1.5">
-                                <div className={`w-2 h-2 rounded-full ${isRunning ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                                <span className="text-[10px] text-text-muted font-mono">localhost:{activeEnv?.port}</span>
-                            </div>
-
-                            {/* Server Controls - Next to title */}
-                            <div className="flex items-center gap-1 ml-2">
-                                <button
-                                    onClick={toggleServer}
-                                    disabled={isServerLoading || !activeEnv}
-                                    className={`p-1.5 rounded transition-colors ${isServerLoading ? 'opacity-50' : isRunning ? 'text-red-500 hover:bg-red-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
-                                    title={isRunning ? "Stop server" : "Start server"}
-                                >
-                                    {isRunning ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
-                                        </svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                        </svg>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={restartServer}
-                                    disabled={!isRunning || isServerLoading}
-                                    className={`p-1.5 rounded transition-colors ${(!isRunning || isServerLoading) ? 'text-text-disabled' : 'text-text-secondary hover:text-text-primary hover:bg-hover'}`}
-                                    title="Restart server"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="h-8 w-px bg-border-custom mx-2" />
-
-                        {/* Navigation Tabs */}
-                        <nav className="flex items-center bg-surface/50 p-1 rounded-lg border border-border-custom/50">
-                            {[
-                                { id: 'routes', label: 'Routes', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg> },
-                                { id: 'databuckets', label: 'Data Buckets', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" /><path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" /><path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" /></svg> },
-                                { id: 'settings', label: 'Settings', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" /></svg> }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveView(tab.id as MainView)}
-                                    className={`
-                                        flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all
-                                        ${activeView === tab.id
-                                            ? 'bg-accent text-white shadow-sm'
-                                            : 'text-text-secondary hover:text-text-primary hover:bg-hover'}
-                                    `}
-                                >
-                                    {tab.icon}
-                                    {tab.label}
-                                </button>
-                            ))}
+        <div className="flex flex-col h-screen w-full overflow-hidden bg-canvas text-fg-default">
+            {/* Global Header (GitHub-style app header + repository tabs) */}
+            <header className="flex-shrink-0 bg-header border-b border-border-custom z-10">
+                <div className="h-14 flex items-center justify-between gap-4 px-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-fg-default flex-shrink-0"><ServerIcon size={24} /></span>
+                        <nav aria-label="Breadcrumb" className="flex items-center gap-1 min-w-0 text-sm">
+                            <span className="text-fg-default">Mockoon</span>
+                            <span className="text-fg-muted">/</span>
+                            <h1 className="font-semibold text-fg-default truncate">{activeEnv?.name || 'No Environment'}</h1>
                         </nav>
+                        {activeEnv && (
+                            <>
+                                <span className={`Label ${isRunning ? 'text-success border-success-muted' : 'text-fg-muted'}`}>
+                                    <span className={`w-2 h-2 rounded-full mr-1.5 ${isRunning ? 'bg-success' : 'bg-fg-subtle'}`} />
+                                    {isRunning ? 'Running' : 'Stopped'}
+                                </span>
+                                <span className="hidden md:inline text-xs text-fg-muted font-mono">localhost:{activeEnv.port}</span>
+                            </>
+                        )}
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            onClick={toggleServer}
+                            disabled={isServerLoading || !activeEnv}
+                            className={`btn btn-sm ${isRunning ? 'btn-danger' : 'btn-primary'}`}
+                            title={isRunning ? 'Stop server' : 'Start server'}
+                        >
+                            {isRunning ? <SquareFillIcon size={12} /> : <PlayIcon />}
+                            {isRunning ? 'Stop' : 'Start'}
+                        </button>
+                        <button
+                            onClick={restartServer}
+                            disabled={!isRunning || isServerLoading}
+                            className="btn btn-sm"
+                            title="Restart server"
+                        >
+                            <SyncIcon className={isServerLoading ? 'animate-spin' : undefined} />
+                            Restart
+                        </button>
+                        <div className="h-5 w-px bg-border-custom mx-1" />
                         <ThemeToggle />
+                        <LogoutButton onLogout={onLogout} />
                     </div>
-                </header>
+                </div>
 
+                {/* Navigation Tabs */}
+                <nav className="UnderlineNav px-4 min-h-0 h-12" aria-label="Environment">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveView(tab.id)}
+                            className={`UnderlineNav-item ${activeView === tab.id ? 'is-selected' : ''}`}
+                            aria-current={activeView === tab.id ? 'page' : undefined}
+                        >
+                            <span className="UnderlineNav-inner">
+                                {tab.icon}
+                                {tab.label}
+                                {tab.count !== undefined && <span className="Counter">{tab.count}</span>}
+                            </span>
+                        </button>
+                    ))}
+                </nav>
+            </header>
+
+            <div className="flex-1 flex overflow-hidden">
+                {/* Sidebar: Environments */}
+                <Sidebar
+                    environments={environments}
+                    activeEnvId={activeEnvId}
+                    onSelectEnv={setActiveEnvId}
+                    onAddEnv={() => setIsNewEnvModalOpen(true)}
+                    onImportEnv={handleImportEnvironment}
+                    onImportOpenAPI={handleImportOpenAPI}
+                    onDeleteEnv={(id) => setEnvToDelete(environments.find(env => env.uuid === id) || null)}
+                />
+
+                {/* Main Content Area */}
                 <div className="flex-1 flex overflow-hidden">
                     {/* Pane 2: Section Navigation (e.g. Route List) */}
                     {activeView === 'routes' && (
@@ -409,6 +465,7 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
                                         environment={activeEnv}
                                         onSave={(updates) => handleUpdateEnvironment(activeEnv.uuid, updates)}
                                         notify={showNotification}
+                                        onDelete={() => setEnvToDelete(activeEnv)}
                                     />
                                 )}
                                 {activeView === 'databuckets' && activeEnv && (
@@ -429,26 +486,52 @@ export default function Dashboard({ initialEnvironments }: DashboardProps) {
                         </ResizableSplitter>
                     </div>
                 </div>
-
-                {/* Global Notifications */}
-                {notification && (
-                    <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 ${notification.type === 'success'
-                        ? 'bg-accent text-white border border-white/20'
-                        : 'bg-red-500 text-white'
-                        }`}>
-                        {notification.type === 'success' ? (
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        )}
-                        <span className="font-medium">{notification.message}</span>
-                    </div>
-                )}
             </div>
+
+            {/* Global Notifications (Primer toast) */}
+            {notification && (
+                <div
+                    role="status"
+                    className="Overlay fixed bottom-6 left-6 z-50 flex items-stretch overflow-hidden rounded-md max-w-md"
+                >
+                    <div className={`flex items-center px-3 text-white ${notification.type === 'success' ? 'bg-success-emphasis' : 'bg-danger-emphasis'}`}>
+                        {notification.type === 'success' ? <CheckCircleIcon /> : <XCircleIcon />}
+                    </div>
+                    <div className="px-4 py-3 text-sm text-fg-default">{notification.message}</div>
+                </div>
+            )}
+
+            {/* Delete Environment Dialog */}
+            {envToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-[var(--backdrop)]" onClick={() => !isDeleting && setEnvToDelete(null)} />
+                    <div role="dialog" aria-modal="true" aria-labelledby="delete-env-title" className="Overlay relative w-full max-w-md mx-4">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border-muted">
+                            <h2 id="delete-env-title" className="text-sm font-semibold text-fg-default">Delete {envToDelete.name}</h2>
+                            <button onClick={() => setEnvToDelete(null)} disabled={isDeleting} className="btn btn-invisible btn-icon btn-sm" aria-label="Close">
+                                <XIcon />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-3 text-sm">
+                            <div className="flash flash-warn text-[13px]">
+                                Its mock server (port {envToDelete.port}) will be stopped and removed from PM2.
+                            </div>
+                            <p className="text-fg-muted">
+                                The file <code className="font-mono text-fg-default">{envToDelete.filename}</code> is moved to{' '}
+                                <code className="font-mono text-fg-default">data/.deleted/</code>, so it can still be restored from the server.
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border-muted">
+                            <button onClick={() => setEnvToDelete(null)} disabled={isDeleting} className="btn btn-sm">
+                                Cancel
+                            </button>
+                            <button onClick={handleDeleteEnvironment} disabled={isDeleting} className="btn btn-sm btn-danger-solid" autoFocus>
+                                {isDeleting ? 'Deleting…' : 'Delete environment'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* New Environment Modal */}
             <NewEnvironmentModal
