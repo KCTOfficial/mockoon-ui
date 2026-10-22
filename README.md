@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  This repository is forked from <a href="https://github.com/oniharnantyo/mockoon-ui">oniharnantyo/mockoon-ui</a>.
+</p>
+
+<p align="center">
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
@@ -29,28 +33,37 @@
 
 ## Features
 
-- 🎨 **GitHub-style UI** - Follows GitHub's Primer design system (colors, buttons, tabs) with a collapsible sidebar
-- 🚀 **Mockoon Powered** - Built on top of [Mockoon](https://mockoon.com/) for reliable API mocking
-- 📝 **Environment Management** - Create, edit, and manage multiple mock API environments
-- 🔀 **Route Configuration** - Full support for HTTP methods, headers, responses, and callbacks
-- 📊 **Data Buckets** - Create and manage reusable data buckets for your mocks
-- 📋 **OpenAPI Import** - Import OpenAPI/Swagger specifications to auto-generate mock environments
-- 🔄 **Real-time Logs** - Server-Sent Events (SSE) powered live log streaming
-- 🐳 **Docker Ready** - Includes Dockerfile and docker-compose for containerized deployment
-- 🌙 **Light & Dark Themes** - Follows the system theme, or pick light/dark manually
+- **Data Buckets** - Create and manage reusable data buckets for your mocks
+- **Docker Ready** - Includes Dockerfile and docker-compose for containerized deployment
+- **Environment Management** - Create, edit, and manage multiple mock API environments
+- **GitHub-style UI** - Follows GitHub's Primer design system (colors, buttons, tabs) with a collapsible sidebar
+- **Light & Dark Themes** - Follows the system theme, or pick light/dark manually
+- **Login Authentication** - Protects the dashboard with username/password sign-in and session-based access control
+- **Mockoon Powered** - Built on top of [Mockoon](https://mockoon.com/) for reliable API mocking
+- **OpenAPI Import** - Import OpenAPI/Swagger specifications to auto-generate mock environments
+- **Real-time Logs** - Server-Sent Events (SSE) powered live log streaming
+- **Route Configuration** - Full support for HTTP methods, headers, responses, and callbacks
 
 ## Screenshots
 
+### Login
+
+![Login](images/screenshot-login.png)
+
 ### Dashboard - Route Editor
+
 ![Dashboard](images/screenshot-dashboard.png)
 
 ### Create New Environment
+
 ![Create Environment](images/screenshot-create-environment.png)
 
 ### Data Buckets Management
+
 ![Data Buckets](images/screenshot-data-buckets.png)
 
 ### Environment Settings
+
 ![Settings](images/screenshot-settings.png)
 
 ## Prerequisites
@@ -127,15 +140,15 @@ yarn start           # UI + API on http://localhost:7001 (override with PORT or 
 
 ### Available Scripts
 
-| Command | Description |
-|---------|-------------|
-| `yarn dev` | Start Vite dev server + API server |
-| `yarn build` | Build client (`dist/client`) and server (`dist/server`) |
-| `yarn start` | Start production server |
-| `yarn lint` | Run ESLint |
-| `yarn test` | Run tests |
-| `yarn test:watch` | Run tests in watch mode |
-| `yarn test:coverage` | Run tests with coverage report |
+| Command              | Description                                             |
+| -------------------- | ------------------------------------------------------- |
+| `yarn dev`           | Start Vite dev server + API server                      |
+| `yarn build`         | Build client (`dist/client`) and server (`dist/server`) |
+| `yarn start`         | Start production server                                 |
+| `yarn lint`          | Run ESLint                                              |
+| `yarn test`          | Run tests                                               |
+| `yarn test:watch`    | Run tests in watch mode                                 |
+| `yarn test:coverage` | Run tests with coverage report                          |
 
 ### Project Structure
 
@@ -182,49 +195,49 @@ All endpoints except `/api/auth/*` require a valid session cookie (`401 Unauthor
 
 ### Auth Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/auth/session` | Whether the current session is valid and login is configured |
-| `POST` | `/api/auth/login` | Sign in with `{ username, password }` (sets an httpOnly session cookie) |
-| `POST` | `/api/auth/logout` | Sign out |
+| Method | Endpoint            | Description                                                             |
+| ------ | ------------------- | ----------------------------------------------------------------------- |
+| `GET`  | `/api/auth/session` | Whether the current session is valid and login is configured            |
+| `POST` | `/api/auth/login`   | Sign in with `{ username, password }` (sets an httpOnly session cookie) |
+| `POST` | `/api/auth/logout`  | Sign out                                                                |
 
 ### Environment Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/environments` | List all environments in `data/` |
-| `POST` | `/api/environments/create` | Create new environment (`{ name, port }`) |
-| `POST` | `/api/environments/import` | Import a Mockoon environment (multipart `file`) |
-| `POST` | `/api/environments/import-openapi` | Import an OpenAPI spec (multipart `file`) |
-| `POST` | `/api/environments/update` | Update environment settings (`{ filename, updatedEnv }`) |
-| `POST` | `/api/environments/delete` | Delete environment (`{ filename }`): stops its mock server, removes it from PM2, moves the file to `data/.deleted/` |
+| Method | Endpoint                           | Description                                                                                                         |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/environments`                | List all environments in `data/`                                                                                    |
+| `POST` | `/api/environments/create`         | Create new environment (`{ name, port }`)                                                                           |
+| `POST` | `/api/environments/import`         | Import a Mockoon environment (multipart `file`)                                                                     |
+| `POST` | `/api/environments/import-openapi` | Import an OpenAPI spec (multipart `file`)                                                                           |
+| `POST` | `/api/environments/update`         | Update environment settings (`{ filename, updatedEnv }`)                                                            |
+| `POST` | `/api/environments/delete`         | Delete environment (`{ filename }`): stops its mock server, removes it from PM2, moves the file to `data/.deleted/` |
 
 ### Route, Response & Resource Endpoints
 
 Each endpoint takes `{ filename, action, ... }` in the JSON body.
 
-| Method | Endpoint | Actions |
-|--------|----------|---------|
-| `POST` | `/api/environments/routes` | `create`, `delete`, `duplicate` |
+| Method | Endpoint                         | Actions                                                         |
+| ------ | -------------------------------- | --------------------------------------------------------------- |
+| `POST` | `/api/environments/routes`       | `create`, `delete`, `duplicate`                                 |
 | `POST` | `/api/environments/update-route` | Update route metadata (`{ filename, routeUuid, updatedRoute }`) |
-| `POST` | `/api/environments/responses` | `create`, `update`, `delete`, `duplicate` |
-| `POST` | `/api/environments/databuckets` | `create`, `update`, `delete` |
-| `POST` | `/api/environments/callbacks` | `create`, `update`, `delete` |
-| `POST` | `/api/environments/folders` | `create`, `update`, `delete` |
+| `POST` | `/api/environments/responses`    | `create`, `update`, `delete`, `duplicate`                       |
+| `POST` | `/api/environments/databuckets`  | `create`, `update`, `delete`                                    |
+| `POST` | `/api/environments/callbacks`    | `create`, `update`, `delete`                                    |
+| `POST` | `/api/environments/folders`      | `create`, `update`, `delete`                                    |
 
 ### Action Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/action` | List PM2 processes and their status |
+| Method | Endpoint      | Description                                                 |
+| ------ | ------------- | ----------------------------------------------------------- |
+| `GET`  | `/api/action` | List PM2 processes and their status                         |
 | `POST` | `/api/action` | `{ command: "start", file }` or `{ command: "stop", name }` |
 
 ### Logs Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/logs?name=` | Last lines of a mock server's logs |
-| `GET` | `/api/logs/stream?name=` | SSE stream for real-time logs |
+| Method | Endpoint                 | Description                        |
+| ------ | ------------------------ | ---------------------------------- |
+| `GET`  | `/api/logs?name=`        | Last lines of a mock server's logs |
+| `GET`  | `/api/logs/stream?name=` | SSE stream for real-time logs      |
 
 ## Docker Deployment
 
@@ -265,13 +278,13 @@ Forward `X-Forwarded-Proto: https` (and `X-Forwarded-Host` if the proxy changes 
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | UI/API port | `7001` (`3000` in Docker) |
-| `HOST` | Bind address | `0.0.0.0` |
-| `MOCKOON_UI_USERNAME` / `MOCKOON_UI_PASSWORD` | Dashboard login | – |
-| `MOCKOON_UI_AUTH_SECRET` | Secret used to sign session cookies | – |
-| `MOCKOON_UI_COOKIE_SECURE` | Force the Secure cookie flag | auto (on when `x-forwarded-proto` is https) |
+| Variable                                      | Description                         | Default                                     |
+| --------------------------------------------- | ----------------------------------- | ------------------------------------------- |
+| `PORT`                                        | UI/API port                         | `7001` (`3000` in Docker)                   |
+| `HOST`                                        | Bind address                        | `0.0.0.0`                                   |
+| `MOCKOON_UI_USERNAME` / `MOCKOON_UI_PASSWORD` | Dashboard login                     | –                                           |
+| `MOCKOON_UI_AUTH_SECRET`                      | Secret used to sign session cookies | –                                           |
+| `MOCKOON_UI_COOKIE_SECURE`                    | Force the Secure cookie flag        | auto (on when `x-forwarded-proto` is https) |
 
 ## Contributing
 
@@ -296,5 +309,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ by the Mockoon CLI UI contributors
+  Maintained by the Mockoon CLI UI contributors
 </p>
