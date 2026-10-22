@@ -68,6 +68,7 @@
 
 ## Prerequisites
 
+- [mockoon-cli](https://www.npmjs.com/package/@mockoon/cli) (installed as dependency)
 - [Node.js](https://nodejs.org/) >= 22.9 (uses `--env-file-if-exists`) and [Yarn](https://classic.yarnpkg.com/) 1.x
 - PM2 (installed as dependency)
 
