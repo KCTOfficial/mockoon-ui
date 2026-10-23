@@ -11,11 +11,8 @@ import {
     hashPassword,
     isPortFree,
     isSetupRequired,
-    isSetupToken,
     saveSettings,
 } from './lib/settings';
-
-const FAILED_TOKEN_DELAY_MS = 800;
 
 const isPort = (value: unknown): value is number =>
     typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65535;
@@ -27,7 +24,10 @@ interface SetupServer {
     moveTo: (port: number) => void;
 }
 
-/** First-run setup: login, UI port and mock server port range. Only reachable while setup is required. */
+/**
+ * First-run setup: login, UI port and mock server port range. Open to whoever reaches the UI first and
+ * locked once saved (409), so it should be completed right after the first start.
+ */
 export function createSetupRoutes(server: SetupServer) {
     const routes = new Hono();
 
@@ -49,10 +49,6 @@ export function createSetupRoutes(server: SetupServer) {
         }
 
         const body = await c.req.json().catch(() => ({}));
-        if (!isSetupToken(body.token)) {
-            await new Promise(resolve => setTimeout(resolve, FAILED_TOKEN_DELAY_MS));
-            return c.json({ error: 'Invalid setup token. Find it in the server log.' }, 403);
-        }
 
         const needsCredentials = !getEnvCredentials();
         const username = typeof body.username === 'string' ? body.username.trim() : '';

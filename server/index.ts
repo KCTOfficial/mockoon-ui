@@ -10,7 +10,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { authRoutes, requireSession } from './auth';
 import { loadEnvironments } from './lib/data-dir';
 import { getPortRange } from './lib/port-range';
-import { getFirewall, getSetupToken, getUiHost, getUiPort, isSetupRequired } from './lib/settings';
+import { getFirewall, getUiHost, getUiPort, isSetupRequired, logSetupRequired } from './lib/settings';
 import { createSetupRoutes } from './setup';
 import * as action from './api/action';
 import * as logs from './api/logs';
@@ -127,8 +127,5 @@ function moveTo(port: number) {
 }
 
 if (isSetupRequired()) {
-    console.log('');
-    console.log('  First-run setup required. Open the UI and enter this setup token:');
-    console.log(`  ${getSetupToken()}`);
-    console.log('');
+    logSetupRequired();
 }

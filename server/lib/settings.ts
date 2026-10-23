@@ -2,7 +2,7 @@ import fs from 'fs';
 import net from 'net';
 import path from 'path';
 import { parseArgs } from 'util';
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 
 /** Saved by the first-run setup in config/settings.json (outside data/, which the environment API can read and write). */
 export interface Settings {
@@ -86,12 +86,16 @@ export function getUiPort(): number {
 // Not HOSTNAME: Docker sets that to the container id
 export const getUiHost = () => process.env.HOST || '0.0.0.0';
 
-export const FIREWALLS = ['ufw', 'firewalld', 'none'] as const;
+export const FIREWALLS = ['ufw', 'firewalld', 'windows', 'none'] as const;
 export type Firewall = (typeof FIREWALLS)[number];
 
-/** Which firewall the setup shows commands for (MOCKOON_FIREWALL). The UI never changes the firewall itself. */
+/**
+ * Which firewall the setup shows commands for: MOCKOON_FIREWALL, else picked from the OS
+ * (Windows Firewall on Windows, ufw on Linux). The UI never changes the firewall itself.
+ */
 export function getFirewall(): Firewall {
-    const value = process.env.MOCKOON_FIREWALL?.trim().toLowerCase() || 'ufw';
+    const auto = process.platform === 'win32' ? 'windows' : process.platform === 'linux' ? 'ufw' : 'none';
+    const value = process.env.MOCKOON_FIREWALL?.trim().toLowerCase() || auto;
     if (!(FIREWALLS as readonly string[]).includes(value)) {
         throw new Error(`Invalid MOCKOON_FIREWALL "${value}", expected one of: ${FIREWALLS.join(', ')}`);
     }
@@ -107,16 +111,10 @@ export function isPortFree(port: number): Promise<boolean> {
     });
 }
 
-let setupToken: string | undefined;
-
-/** One-time token printed to the server log, so only someone with server access can claim the setup. */
-export function getSetupToken(): string {
-    setupToken ??= randomBytes(12).toString('hex');
-    return setupToken;
-}
-
-export function isSetupToken(token: unknown): boolean {
-    if (typeof token !== 'string') return false;
-    const digest = (value: string) => createHmac('sha256', 'setup').update(value).digest();
-    return timingSafeEqual(digest(token.trim()), digest(getSetupToken()));
+/** Printed at startup while nobody has completed the setup yet. */
+export function logSetupRequired() {
+    console.log('');
+    console.log('  First-run setup required: open the UI to set the login and ports.');
+    console.log('  Until then anyone who can reach the UI can complete it, so do it right away.');
+    console.log('');
 }

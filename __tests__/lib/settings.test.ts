@@ -95,17 +95,10 @@ describe('settings', () => {
         expect(s.getUiPortSource()).toBe('env');
     });
 
-    it('accepts only the printed setup token', async () => {
+    it('reads MOCKOON_FIREWALL, defaulting to the OS firewall', async () => {
         const { settings } = await load();
-        expect(settings.isSetupToken(settings.getSetupToken())).toBe(true);
-        expect(settings.isSetupToken(` ${settings.getSetupToken()} `)).toBe(true);
-        expect(settings.isSetupToken('nope')).toBe(false);
-        expect(settings.isSetupToken(undefined)).toBe(false);
-    });
-
-    it('reads MOCKOON_FIREWALL, defaulting to ufw', async () => {
-        const { settings } = await load();
-        expect(settings.getFirewall()).toBe('ufw');
+        const expected = process.platform === 'win32' ? 'windows' : process.platform === 'linux' ? 'ufw' : 'none';
+        expect(settings.getFirewall()).toBe(expected);
         process.env.MOCKOON_FIREWALL = 'FirewallD';
         expect(settings.getFirewall()).toBe('firewalld');
         process.env.MOCKOON_FIREWALL = 'iptables';

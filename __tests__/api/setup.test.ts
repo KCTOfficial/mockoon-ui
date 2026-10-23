@@ -24,7 +24,6 @@ describe('/api/setup', () => {
         });
 
     const validBody = () => ({
-        token: settings.getSetupToken(),
         username: 'admin',
         password: 'password1',
         uiPort: 7001,
@@ -39,7 +38,7 @@ describe('/api/setup', () => {
         delete process.env.MOCKOON_UI_PASSWORD;
         delete process.env.MOCKOON_PORT_RANGE;
         delete process.env.PORT;
-        delete process.env.MOCKOON_FIREWALL;
+        process.env.MOCKOON_FIREWALL = 'ufw';
         // Fresh modules per test: settings caches the file content
         await jest.isolateModulesAsync(async () => {
             setup = await import('@/server/setup');
@@ -50,6 +49,7 @@ describe('/api/setup', () => {
 
     afterEach(() => {
         jest.restoreAllMocks();
+        delete process.env.MOCKOON_FIREWALL;
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
@@ -62,12 +62,6 @@ describe('/api/setup', () => {
             mockPortRange: { min: 1, max: 65535, locked: false },
             firewall: 'ufw',
         });
-    });
-
-    it('rejects a wrong token', async () => {
-        const res = await post({ ...validBody(), token: 'wrong' });
-        expect(res.status).toBe(403);
-        expect(settings.isSetupRequired()).toBe(true);
     });
 
     it('rejects a UI port inside the mock range', async () => {
@@ -93,6 +87,7 @@ describe('/api/setup', () => {
         expect(saved.passwordHash).toMatch(/^scrypt\$/);
         expect(JSON.stringify(saved)).not.toContain('password1');
 
+        expect(settings.isSetupRequired()).toBe(false);
         expect((await post(validBody())).status).toBe(409);
     });
 });
