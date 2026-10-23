@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { XIcon } from '@primer/octicons-react';
+import PortSelect from './shared/PortSelect';
 
 interface NewEnvironmentModalProps {
     isOpen: boolean;
@@ -98,15 +99,7 @@ export default function NewEnvironmentModal({ isOpen, onClose, onCreate }: NewEn
 
                         <div>
                             <label htmlFor="new-env-port" className="form-label">Port number</label>
-                            <input
-                                id="new-env-port"
-                                type="number"
-                                value={port}
-                                onChange={(e) => setPort(parseInt(e.target.value) || 0)}
-                                min={range.min}
-                                max={range.max}
-                                className="form-control w-full font-mono"
-                            />
+                            <PortSelect id="new-env-port" value={port} onChange={setPort} />
                             <p className="form-caption">
                                 The port where the mock server will run. Allowed: {range.min}-{range.max}
                             </p>

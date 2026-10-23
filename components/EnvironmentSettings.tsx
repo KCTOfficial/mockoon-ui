@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Environment } from '@/types/mockoon';
 import HeadersList from './shared/HeadersList';
+import PortSelect from './shared/PortSelect';
 import { AlertIcon } from '@primer/octicons-react';
 
 interface EnvironmentSettingsProps {
@@ -90,14 +91,14 @@ export default function EnvironmentSettings({ environment, onSave, notify, onDel
                         </div>
                         <div>
                             <label htmlFor="env-port" className="form-label">Port</label>
-                            <input
+                            <PortSelect
                                 id="env-port"
-                                type="number"
                                 value={port}
-                                onChange={(e) => setPort(parseInt(e.target.value) || 0)}
-                                onBlur={() => handleSave({ port })}
-                                className="form-control w-full font-mono"
+                                onChange={setPort}
+                                onCommit={(value) => value !== environment.port && handleSave({ port: value })}
+                                currentFilename={environment.filename}
                             />
+                            <p className="form-caption">Restart the mock server to apply a new port.</p>
                         </div>
                         <div>
                             <label htmlFor="env-prefix" className="form-label">Global prefix</label>

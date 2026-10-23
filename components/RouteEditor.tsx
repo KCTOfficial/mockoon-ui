@@ -3,6 +3,7 @@ import { Route, Response, Header, ResponseRule, LogicalOperators, ResponseMode }
 import HeadersList from './shared/HeadersList';
 import RulesList from './shared/RulesList';
 import MonacoEditorWrapper from './shared/MonacoEditorWrapper';
+import ConfirmDialog from './shared/ConfirmDialog';
 import { AlertIcon, CheckIcon, ClockIcon, PlusIcon, RowsIcon, TrashIcon } from '@primer/octicons-react';
 
 // Response Tab Component with inline editing
@@ -117,6 +118,7 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
     const [activeTab, setActiveTab] = useState<'body' | 'headers' | 'rules' | 'settings'>('body');
     const [isSaving, setIsSaving] = useState(false);
     const [activeResponseUuid, setActiveResponseUuid] = useState<string | null>(null);
+    const [confirmDeleteResponse, setConfirmDeleteResponse] = useState(false);
 
     // Draft state for uncommitted edits
     const [draftRoute, setDraftRoute] = useState<Route | null>(null);
@@ -316,6 +318,9 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                 setDraftRoute(updatedRoute);
                 setOriginalRoute(updatedRoute); // Deleting is a hard action
                 if (onSave) onSave(updatedRoute);
+                setConfirmDeleteResponse(false);
+            } else if (notify) {
+                notify('Error deleting response', 'error');
             }
         } catch (error: any) {
             if (notify) notify('Error deleting response', 'error');
@@ -461,7 +466,7 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                         <PlusIcon />
                     </button>
                     <button
-                        onClick={handleDeleteResponse}
+                        onClick={() => setConfirmDeleteResponse(true)}
                         disabled={route && route.responses.length <= 1}
                         className="btn btn-invisible btn-icon btn-sm hover:!text-danger"
                         title="Delete current response"
@@ -657,6 +662,19 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                     </div>
                 )}
             </div>
+
+            {confirmDeleteResponse && (
+                <ConfirmDialog
+                    title="Delete response"
+                    confirmLabel="Delete response"
+                    onConfirm={handleDeleteResponse}
+                    onCancel={() => setConfirmDeleteResponse(false)}
+                >
+                    Delete the response{' '}
+                    <strong className="text-fg-default">&ldquo;{activeResponse.label || 'Untitled'}&rdquo;</strong>{' '}
+                    from this route? This cannot be undone.
+                </ConfirmDialog>
+            )}
         </div>
     );
 }

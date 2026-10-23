@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Environment, DataBucket } from '@/types/mockoon';
 import MonacoEditorWrapper from './shared/MonacoEditorWrapper';
+import ConfirmDialog from './shared/ConfirmDialog';
 import { DatabaseIcon, PlusIcon, XIcon } from '@primer/octicons-react';
 
 interface DataBucketsEditorProps {
@@ -14,6 +15,7 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
         environment.data[0]?.uuid || null
     );
     const [isSaving, setIsSaving] = useState(false);
+    const [bucketToDelete, setBucketToDelete] = useState<DataBucket | null>(null);
 
     const activeBucket = environment.data.find(b => b.uuid === selectedBucketUuid);
 
@@ -57,6 +59,9 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
                     setSelectedBucketUuid(remaining[0]?.uuid || null);
                 }
                 notify('Data bucket deleted', 'success');
+                setBucketToDelete(null);
+            } else {
+                notify('Error deleting bucket', 'error');
             }
         } catch (error) {
             notify('Error deleting bucket', 'error');
@@ -117,7 +122,7 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
                                     <span className="text-xs text-fg-muted font-mono font-normal truncate">{bucket.id}</span>
                                 </div>
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteBucket(bucket.uuid); }}
+                                    onClick={(e) => { e.stopPropagation(); setBucketToDelete(bucket); }}
                                     className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 opacity-0 group-hover:opacity-100 hover:!text-danger"
                                     title="Delete bucket"
                                     aria-label="Delete bucket"
@@ -181,6 +186,20 @@ export default function DataBucketsEditor({ environment, onUpdate, notify }: Dat
                     </div>
                 )}
             </div>
+
+            {bucketToDelete && (
+                <ConfirmDialog
+                    title="Delete data bucket"
+                    confirmLabel="Delete bucket"
+                    onConfirm={() => handleDeleteBucket(bucketToDelete.uuid)}
+                    onCancel={() => setBucketToDelete(null)}
+                >
+                    Delete the data bucket{' '}
+                    <strong className="text-fg-default">&ldquo;{bucketToDelete.name || 'Unnamed bucket'}&rdquo;</strong>? Responses
+                    that use <code className="font-mono text-fg-default">{`{{data '${bucketToDelete.id}'}}`}</code> will no
+                    longer find it. This cannot be undone.
+                </ConfirmDialog>
+            )}
         </div>
     );
 }

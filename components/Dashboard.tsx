@@ -10,6 +10,7 @@ import DataBucketsEditor from './DataBucketsEditor';
 import NewEnvironmentModal from './NewEnvironmentModal';
 import { ThemeToggle } from './ThemeToggle';
 import { LogoutButton } from './LogoutButton';
+import { AccountButton } from './AccountButton';
 import {
     CheckCircleIcon,
     DatabaseIcon,
@@ -27,6 +28,9 @@ interface DashboardProps {
     initialEnvironments: Environment[];
     onLogout: () => Promise<void>;
 }
+
+// The server names PM2 processes after the environment file (without .json), not the display name
+const envFileOf = (env: Environment) => env.filename || `${env.name}.json`;
 
 export default function Dashboard({ initialEnvironments, onLogout }: DashboardProps) {
     const [environments, setEnvironments] = useState<Environment[]>(initialEnvironments);
@@ -76,24 +80,24 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
 
     const activeRoute = activeEnv?.routes.find(route => route.uuid === activeRouteId);
 
-    // The server names PM2 processes after the environment file (without .json), not the display name
-    const envFile = activeEnv ? (activeEnv.filename || `${activeEnv.name}.json`) : '';
+    const envFile = activeEnv ? envFileOf(activeEnv) : '';
     const processName = envFile.replace(/\.json$/, '');
 
-    // Server Control Logic
-    const [isRunning, setIsRunning] = useState(false);
+    // Server Control Logic: PM2 status of every mock server, keyed by process name
+    const [processStatuses, setProcessStatuses] = useState<Record<string, string>>({});
+    const isRunning = processStatuses[processName] === 'online';
+    const setStatus = (name: string, status: string) => setProcessStatuses(prev => ({ ...prev, [name]: status }));
     const [isServerLoading, setIsServerLoading] = useState(false);
 
     useEffect(() => {
-        if (!activeEnv) return;
-
         const checkStatus = async () => {
             try {
                 const res = await fetch('/api/action');
                 const data = await res.json();
                 if (data.processes) {
-                    const isEnvRunning = data.processes.some((p: any) => p.name === processName && p.status === 'online');
-                    setIsRunning(isEnvRunning);
+                    setProcessStatuses(Object.fromEntries(
+                        data.processes.map((p: { name: string; status: string }) => [p.name, p.status])
+                    ));
                 }
             } catch (error) {
                 console.error('Failed to check status', error);
@@ -104,7 +108,13 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
         const interval = setInterval(checkStatus, 10000);
 
         return () => clearInterval(interval);
-    }, [activeEnv?.uuid, processName]);
+        // Re-check right away when switching environments
+    }, [activeEnv?.uuid]);
+
+    // Per-environment status for the sidebar; no PM2 process means it was never started (stopped)
+    const envStatuses = Object.fromEntries(
+        environments.map(env => [env.uuid, processStatuses[envFileOf(env).replace(/\.json$/, '')] ?? 'stopped'])
+    );
 
     const toggleServer = async () => {
         if (!activeEnv) return;
@@ -117,7 +127,7 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ command: 'stop', name: processName })
                 });
-                setIsRunning(false);
+                setStatus(processName, 'stopped');
             } else {
                 const res = await fetch('/api/action', {
                     method: 'POST',
@@ -128,7 +138,7 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                     const data = await res.json().catch(() => ({}));
                     throw new Error(data.error || 'Failed to start server');
                 }
-                setIsRunning(true);
+                setStatus(processName, 'online');
             }
         } catch (error) {
             console.error('Action failed', error);
@@ -154,7 +164,7 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                 body: JSON.stringify({ command: 'start', file: envFile })
             });
             if (!res.ok) {
-                setIsRunning(false);
+                setStatus(processName, 'stopped');
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Failed to restart server');
             }
@@ -261,6 +271,28 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
             showNotification(`Environment "${data.environment.name}" imported successfully`);
         } catch (error: any) {
             showNotification(error.message || 'Failed to import environment', 'error');
+        }
+    };
+
+    // Downloads the saved file (what was imported or created, plus later edits) as a Mockoon environment
+    const handleExportEnvironment = async (id: string) => {
+        const target = environments.find(env => env.uuid === id);
+        if (!target?.filename) return;
+        try {
+            const res = await fetch(`/api/environments/export?filename=${encodeURIComponent(target.filename)}`);
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to export environment');
+            }
+            const url = URL.createObjectURL(await res.blob());
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = target.filename;
+            link.click();
+            // Revoke after the download has started
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            showNotification(error instanceof Error ? error.message : 'Failed to export environment', 'error');
         }
     };
 
@@ -377,6 +409,7 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                         </button>
                         <div className="h-5 w-px bg-border-custom mx-1" />
                         <ThemeToggle />
+                        <AccountButton notify={showNotification} />
                         <LogoutButton onLogout={onLogout} />
                     </div>
                 </div>
@@ -409,6 +442,8 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                     onAddEnv={() => setIsNewEnvModalOpen(true)}
                     onImportEnv={handleImportEnvironment}
                     onImportOpenAPI={handleImportOpenAPI}
+                    envStatuses={envStatuses}
+                    onExportEnv={handleExportEnvironment}
                     onDeleteEnv={(id) => setEnvToDelete(environments.find(env => env.uuid === id) || null)}
                 />
 

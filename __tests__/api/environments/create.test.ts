@@ -15,6 +15,9 @@ jest.mock('fs', () => {
     };
 });
 
+// Independent of the local config/settings.json (port range, UI port)
+jest.mock('@/server/lib/settings', () => ({ getSettings: () => null, getUiPort: () => 7001 }));
+
 const fs = require('fs');
 
 describe('/api/environments/create', () => {

@@ -45,6 +45,12 @@ export function saveSettings(settings: Settings) {
     cache = settings;
 }
 
+/** Deletes the saved setup (login, secret, ports) so the first-run setup runs again; signs everyone out. */
+export function clearSettings() {
+    fs.rmSync(settingsFile(), { force: true });
+    cache = null;
+}
+
 export function hashPassword(password: string): string {
     const salt = randomBytes(16);
     return `scrypt$${salt.toString('base64')}$${scryptSync(password, salt, 64).toString('base64')}`;

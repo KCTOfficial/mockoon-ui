@@ -94,4 +94,32 @@ describe('Sidebar Component', () => {
 
         expect(mockProps.onImportEnv).toHaveBeenCalledWith(file);
     });
+
+    it('shows whether each mock server is running', () => {
+        render(<Sidebar {...mockProps} envStatuses={{ 'env-1': 'online', 'env-2': 'stopped' }} />);
+
+        expect(screen.getByTitle('Running')).toBeInTheDocument();
+        expect(screen.getByTitle('Stopped')).toBeInTheDocument();
+    });
+
+    it('resizes within the min and max width and remembers it', async () => {
+        const user = userEvent.setup();
+        const { unmount } = render(<Sidebar {...mockProps} />);
+        const handle = screen.getByRole('separator', { name: 'Resize sidebar' });
+        expect(handle).toHaveAttribute('aria-valuenow', '256');
+
+        handle.focus();
+        await user.keyboard('{ArrowRight}');
+        expect(handle).toHaveAttribute('aria-valuenow', '272');
+
+        await user.keyboard('{End}{ArrowRight}');
+        expect(handle).toHaveAttribute('aria-valuenow', '480');
+
+        await user.keyboard('{Home}{ArrowLeft}');
+        expect(handle).toHaveAttribute('aria-valuenow', '200');
+
+        unmount();
+        render(<Sidebar {...mockProps} />);
+        expect(screen.getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute('aria-valuenow', '200');
+    });
 });

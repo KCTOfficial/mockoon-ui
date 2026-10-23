@@ -1,6 +1,7 @@
 import { Environment } from '@/types/mockoon';
-import { useState, useEffect } from 'react';
-import { CheckIcon, FileDirectoryIcon, PlusIcon, SearchIcon, TrashIcon, TriangleDownIcon, XIcon } from '@primer/octicons-react';
+import { useState } from 'react';
+import { FileDirectoryIcon, PlusIcon, SearchIcon, TrashIcon, TriangleDownIcon } from '@primer/octicons-react';
+import ConfirmDialog from './shared/ConfirmDialog';
 
 interface RouteListProps {
     activeEnv?: Environment;
@@ -22,7 +23,7 @@ const methodColors: Record<string, string> = {
 
 export default function RouteList({ activeEnv, envFilename, activeRouteId, onSelectRoute, onRouteCreated, onRouteDeleted, notify }: RouteListProps) {
     const [filter, setFilter] = useState('');
-    const [confirmingId, setConfirmingId] = useState<string | null>(null);
+    const [routeToDelete, setRouteToDelete] = useState<Environment['routes'][number] | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -30,14 +31,6 @@ export default function RouteList({ activeEnv, envFilename, activeRouteId, onSel
         r.endpoint.toLowerCase().includes(filter.toLowerCase()) ||
         r.method.toLowerCase().includes(filter.toLowerCase())
     );
-
-    // Auto-reset confirmation state after 3 seconds
-    useEffect(() => {
-        if (confirmingId) {
-            const timer = setTimeout(() => setConfirmingId(null), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [confirmingId]);
 
     const handleCreateRoute = async (routeType: string = 'http') => {
         if (!envFilename) return;
@@ -97,14 +90,7 @@ export default function RouteList({ activeEnv, envFilename, activeRouteId, onSel
         }
     };
 
-    const handleDeleteRoute = async (e: React.MouseEvent, routeUuid: string) => {
-        e.stopPropagation();
-
-        if (confirmingId !== routeUuid) {
-            setConfirmingId(routeUuid);
-            return;
-        }
-
+    const handleDeleteRoute = async (routeUuid: string) => {
         if (!envFilename) return;
 
         try {
@@ -118,9 +104,11 @@ export default function RouteList({ activeEnv, envFilename, activeRouteId, onSel
                 })
             });
             if (res.ok) {
-                setConfirmingId(null);
+                setRouteToDelete(null);
                 if (onRouteDeleted) onRouteDeleted(routeUuid);
                 if (notify) notify('Route deleted', 'success');
+            } else if (notify) {
+                notify('Error deleting route', 'error');
             }
         } catch (error: any) {
             if (notify) notify('Error deleting route', 'error');
@@ -216,35 +204,17 @@ export default function RouteList({ activeEnv, envFilename, activeRouteId, onSel
                             </div>
 
                             <div className="flex items-center gap-1">
-                                {confirmingId === route.uuid ? (
-                                    <>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setConfirmingId(null);
-                                            }}
-                                            className="btn btn-invisible btn-icon btn-sm !w-6 !h-6"
-                                            title="Cancel deletion"
-                                        >
-                                            <XIcon size={14} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDeleteRoute(e, route.uuid)}
-                                            className="btn btn-danger-solid btn-icon btn-sm !w-6 !h-6"
-                                            title="Confirm deletion"
-                                        >
-                                            <CheckIcon size={14} />
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        onClick={(e) => handleDeleteRoute(e, route.uuid)}
-                                        className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 opacity-0 group-hover:opacity-100 hover:!text-danger"
-                                        title="Delete route"
-                                    >
-                                        <TrashIcon size={14} />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRouteToDelete(route);
+                                    }}
+                                    className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:!text-danger"
+                                    title="Delete route"
+                                    aria-label="Delete route"
+                                >
+                                    <TrashIcon size={14} />
+                                </button>
                             </div>
                         </div>
                     );
@@ -255,6 +225,21 @@ export default function RouteList({ activeEnv, envFilename, activeRouteId, onSel
                     </div>
                 )}
             </div>
+
+            {routeToDelete && (
+                <ConfirmDialog
+                    title="Delete route"
+                    confirmLabel="Delete route"
+                    onConfirm={() => handleDeleteRoute(routeToDelete.uuid)}
+                    onCancel={() => setRouteToDelete(null)}
+                >
+                    Delete{' '}
+                    <code className="font-mono text-fg-default">
+                        {(routeToDelete.method || routeToDelete.type).toUpperCase()} /{routeToDelete.endpoint.replace(/^\//, '')}
+                    </code>{' '}
+                    and its {routeToDelete.responses.length} response(s)? This cannot be undone.
+                </ConfirmDialog>
+            )}
         </div>
     );
 }

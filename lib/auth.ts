@@ -26,6 +26,16 @@ export function isAuthConfigured(): boolean {
     return getConfig() !== null;
 }
 
+/** Username of the active login (from .env or the saved settings). */
+export function getLoginUsername(): string | null {
+    return getConfig()?.username ?? null;
+}
+
+/** Checks only the password of the active login, e.g. before changing the account. */
+export function verifyCurrentPassword(password: string): boolean {
+    return getConfig()?.checkPassword(password) ?? false;
+}
+
 function safeEqual(a: string, b: string): boolean {
     // Hash both sides so lengths match and comparison time doesn't leak input length
     const ha = createHmac('sha256', 'cmp').update(a).digest();

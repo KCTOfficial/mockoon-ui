@@ -37,7 +37,8 @@ export function createSetupRoutes(server: SetupServer) {
         return c.json({
             required: true,
             needsCredentials: !getEnvCredentials(),
-            uiPort: { value: getUiPort(), locked: uiPortSource === 'arg' || uiPortSource === 'env' },
+            // The port it is listening on now, which after a reset may differ from the default
+            uiPort: { value: server.currentPort(), locked: uiPortSource === 'arg' || uiPortSource === 'env' },
             mockPortRange: { ...getPortRange(), locked: !!process.env.MOCKOON_PORT_RANGE?.trim() },
             firewall: getFirewall(),
         });
