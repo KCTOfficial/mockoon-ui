@@ -49,6 +49,7 @@ __tests__
 .env
 .env.*
 !.env.example
+config
 
 # Local backups of data/ and deleted environments
 data.bak-*

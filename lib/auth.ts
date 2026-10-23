@@ -1,15 +1,25 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { getEnvCredentials, getSettings, verifyPassword } from '@/server/lib/settings';
 
-// Static-credential auth for the dashboard UI only. Mock servers (PM2 processes on their own ports) are not affected.
+// Single-user auth for the dashboard UI only. Mock servers (PM2 processes on their own ports) are not affected.
 export const SESSION_COOKIE = 'mockoon_ui_session';
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12; // 12 hours
 
+/** Login from .env when set (also the way to reset a forgotten password), otherwise the one saved by the setup. */
 function getConfig() {
-    const username = process.env.MOCKOON_UI_USERNAME;
-    const password = process.env.MOCKOON_UI_PASSWORD;
-    const secret = process.env.MOCKOON_UI_AUTH_SECRET;
-    if (!username || !password || !secret) return null;
-    return { username, password, secret };
+    const settings = getSettings();
+    const secret = process.env.MOCKOON_UI_AUTH_SECRET || settings?.secret;
+    if (!secret) return null;
+
+    const env = getEnvCredentials();
+    if (env) {
+        return { username: env.username, secret, checkPassword: (password: string) => safeEqual(password, env.password) };
+    }
+    const { username, passwordHash } = settings ?? {};
+    if (username && passwordHash) {
+        return { username, secret, checkPassword: (password: string) => verifyPassword(password, passwordHash) };
+    }
+    return null;
 }
 
 export function isAuthConfigured(): boolean {
@@ -28,7 +38,7 @@ export function verifyCredentials(username: string, password: string): boolean {
     if (!config) return false;
     // Evaluate both to avoid short-circuit timing differences
     const userOk = safeEqual(username, config.username);
-    const passOk = safeEqual(password, config.password);
+    const passOk = config.checkPassword(password);
     return userOk && passOk;
 }
 

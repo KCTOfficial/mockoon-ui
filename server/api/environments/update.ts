@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { Environment } from '@/types/mockoon';
 import { resolveEnvFile } from '../../lib/data-dir';
+import { checkPort } from '../../lib/port-range';
 
 export async function POST(req: Request) {
     try {
@@ -17,6 +18,13 @@ export async function POST(req: Request) {
 
         const content = fs.readFileSync(filePath, 'utf-8');
         const environment = JSON.parse(content) as Environment;
+
+        if ('port' in updatedEnv && updatedEnv.port !== environment.port) {
+            const portError = checkPort(updatedEnv.port, filename);
+            if (portError) {
+                return Response.json({ error: portError }, { status: 400 });
+            }
+        }
 
         // Perform shallow merge for top-level fields
         // We exclude collections like routes, folders, data, callbacks here 

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import type { MiddlewareHandler } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
+import { isSetupRequired } from './lib/settings';
 import {
     SESSION_COOKIE,
     SESSION_MAX_AGE_SECONDS,
@@ -26,6 +27,7 @@ authRoutes.get('/session', (c) =>
     c.json({
         authenticated: verifySessionToken(getCookie(c, SESSION_COOKIE)),
         configured: isAuthConfigured(),
+        setupRequired: isSetupRequired(),
     })
 );
 
@@ -44,10 +46,17 @@ authRoutes.post('/login', async (c) => {
         return c.json({ error: 'Invalid username or password.' }, 401);
     }
 
-    const token = createSessionToken();
-    if (!token) {
+    if (!startSession(c)) {
         return c.json({ error: 'Login is not configured on the server.' }, 503);
     }
+
+    return c.json({ success: true });
+});
+
+/** Sets the session cookie; false when login is not configured. */
+export function startSession(c: Context): boolean {
+    const token = createSessionToken();
+    if (!token) return false;
 
     // Only mark Secure when served over HTTPS (directly or behind a TLS-terminating proxy), so plain-HTTP LAN setups still work
     const isHttps = c.req.header('x-forwarded-proto') === 'https' || process.env.MOCKOON_UI_COOKIE_SECURE === 'true';
@@ -59,9 +68,8 @@ authRoutes.post('/login', async (c) => {
         path: '/',
         maxAge: SESSION_MAX_AGE_SECONDS,
     });
-
-    return c.json({ success: true });
-});
+    return true;
+}
 
 authRoutes.post('/logout', (c) => {
     deleteCookie(c, SESSION_COOKIE, { path: '/' });

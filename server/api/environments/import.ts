@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as generateUUID } from 'uuid';
 import { normalizeEnvironment } from '../../lib/normalize-env';
+import { portForImport } from '../../lib/port-range';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 
@@ -153,6 +154,16 @@ export async function POST(request: Request) {
                 { status: 400 }
             );
         }
+
+        // Keep the file's port only if it is in the allowed range and free
+        const port = portForImport(environment.port);
+        if (port === null) {
+            return Response.json(
+                { error: 'No free port left in the allowed range' },
+                { status: 409 }
+            );
+        }
+        environment.port = port;
 
         // Generate unique filename
         const filename = generateUniqueFilename(environment.name);

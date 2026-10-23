@@ -23,6 +23,12 @@ node_modules/
 # env files: contain login credentials and the session secret
 .env*
 !.env.example
+# first-run setup (password hash, session secret, ports)
+/config/
+
+# environments: only the demo-* samples are committed, everything else stays local
+/data/*
+!/data/demo-*
 
 # local backups of data/ and deleted environments (recoverable copies)
 /data.bak-*/

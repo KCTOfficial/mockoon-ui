@@ -44,7 +44,12 @@ export default function EnvironmentSettings({ environment, onSave, notify, onDel
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to update settings');
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                // Show the server's reason (e.g. port outside the range or already used) and undo the edit
+                if ('port' in updates) setPort(environment.port);
+                throw new Error(data.error || 'Failed to update settings');
+            }
 
             onSave(updates);
             notify('Settings saved successfully', 'success');

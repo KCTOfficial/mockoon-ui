@@ -95,13 +95,15 @@ yarn dev
 
 Open [http://localhost:7001](http://localhost:7001) with your browser to access the UI. The dev command runs the Vite dev server and the API server (port 7099, proxied under `/api`) together.
 
-Copy `.env.example` to `.env` and set the login credentials first.
+On first run the UI opens a **setup** page asking for the login, the UI port and the mock server port range. It is protected by a one-time token printed in the server log (`pm2 logs mockoon-ui`, or the terminal). The answers are saved in `config/settings.json` (password hashed with scrypt). `.env` is optional: values set there win over the setup (see `.env.example`).
+
+**Forgot the password?** Set `MOCKOON_UI_USERNAME` and `MOCKOON_UI_PASSWORD` in `.env` and restart the UI. To run the setup again, delete `config/settings.json` and restart.
 
 ### Production
 
 ```bash
 yarn build
-yarn start           # UI + API on http://localhost:7001 (override with PORT or --port)
+yarn start           # UI + API on the setup port, 7001 by default (PORT or --port override it)
 ```
 
 ## Usage
@@ -109,8 +111,24 @@ yarn start           # UI + API on http://localhost:7001 (override with PORT or 
 ### Creating an Environment
 
 1. Click **New environment** at the bottom of the sidebar
-2. Enter the environment name and the port the mock server should listen on
+2. Enter the environment name and the port the mock server should listen on (prefilled with the next free port)
 3. Add routes, responses, and data buckets as needed
+
+### Mock Server Ports
+
+Each environment must use its own port; two environments on the same port cannot run at the same time. Mock servers are limited to the range chosen in the setup (or `MOCKOON_PORT_RANGE`, e.g. `7002-7020`, in `.env`). Open the UI port and that range once in the firewall; the setup page shows the commands for the firewall set in `MOCKOON_FIREWALL` (`ufw` by default, `firewalld`, or `none` to hide them). Mockoon UI never changes the firewall itself.
+
+```bash
+# ufw
+sudo ufw allow 7001/tcp
+sudo ufw allow 7002:7020/tcp
+
+# firewalld
+sudo firewall-cmd --permanent --add-port=7001/tcp --add-port=7002-7020/tcp
+sudo firewall-cmd --reload
+```
+
+Creating, editing, and starting an environment is rejected when its port is outside the range or used by another environment. Imported environments get a free port from the range automatically. The UI port is never assigned to a mock server. Restart the UI after changing `MOCKOON_PORT_RANGE`.
 
 ### Importing Environments
 
@@ -210,6 +228,7 @@ All endpoints except `/api/auth/*` require a valid session cookie (`401 Unauthor
 | `POST` | `/api/environments/create`         | Create new environment (`{ name, port }`)                                                                           |
 | `POST` | `/api/environments/import`         | Import a Mockoon environment (multipart `file`)                                                                     |
 | `POST` | `/api/environments/import-openapi` | Import an OpenAPI spec (multipart `file`)                                                                           |
+| `GET`  | `/api/environments/ports`          | Allowed port range and next free port (`{ min, max, suggested }`)                                                   |
 | `POST` | `/api/environments/update`         | Update environment settings (`{ filename, updatedEnv }`)                                                            |
 | `POST` | `/api/environments/delete`         | Delete environment (`{ filename }`): stops its mock server, removes it from PM2, moves the file to `data/.deleted/` |
 
@@ -253,22 +272,22 @@ The UI and API listen on port **3000** inside the container. Mock servers are st
 
 ### Using Docker Compose (recommended)
 
-1. Copy `.env.example` to `.env` next to `docker-compose.yml` and set `MOCKOON_UI_USERNAME`, `MOCKOON_UI_PASSWORD` and `MOCKOON_UI_AUTH_SECRET`
+1. Optional: copy `.env.example` to `.env` next to `docker-compose.yml` for overrides
 2. Start it:
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000)
+3. Open [http://localhost:3000](http://localhost:3000) and finish the setup with the token from `docker compose logs mockoon-ui`. The UI port stays 3000 in Docker (set by `PORT`).
 
-The compose file uses `network_mode: host` so every mock server port is reachable without listing ports, and mounts `./data` so environments persist across rebuilds. `network_mode: host` is fully supported on Linux; on Docker Desktop (Windows/macOS) it needs host networking enabled in Docker Desktop settings, or switch to a `ports:` mapping (see the comments in `docker-compose.yml`).
+The compose file uses `network_mode: host` so every mock server port is reachable without listing ports, and mounts `./data` and `./config` so environments and the setup persist across rebuilds. `network_mode: host` is fully supported on Linux; on Docker Desktop (Windows/macOS) it needs host networking enabled in Docker Desktop settings, or switch to a `ports:` mapping (see the comments in `docker-compose.yml`).
 
 ### Using the Dockerfile directly
 
 ```bash
 docker build -t mockoon-cli-ui .
-docker run -d --name mockoon-ui   -p 3000:3000 -p 3001:3001   --env-file .env   -v "$(pwd)/data:/app/data"   mockoon-cli-ui
+docker run -d --name mockoon-ui   -p 3000:3000 -p 3001:3001   -v "$(pwd)/data:/app/data"   -v "$(pwd)/config:/app/config"   mockoon-cli-ui
 ```
 
 Publish every port your mock environments use (`-p 3001:3001` above is an example), or use `--network host` on Linux.
@@ -281,10 +300,12 @@ Forward `X-Forwarded-Proto: https` (and `X-Forwarded-Host` if the proxy changes 
 
 | Variable                                      | Description                         | Default                                     |
 | --------------------------------------------- | ----------------------------------- | ------------------------------------------- |
-| `PORT`                                        | UI/API port                         | `7001` (`3000` in Docker)                   |
+| `PORT`                                        | UI/API port                         | setup value, else `7001` (`3000` in Docker) |
 | `HOST`                                        | Bind address                        | `0.0.0.0`                                   |
-| `MOCKOON_UI_USERNAME` / `MOCKOON_UI_PASSWORD` | Dashboard login                     | –                                           |
-| `MOCKOON_UI_AUTH_SECRET`                      | Secret used to sign session cookies | –                                           |
+| `MOCKOON_UI_USERNAME` / `MOCKOON_UI_PASSWORD` | Dashboard login (overrides setup)   | setup value                                 |
+| `MOCKOON_UI_AUTH_SECRET`                      | Secret used to sign session cookies | generated by the setup                      |
+| `MOCKOON_PORT_RANGE`                          | Mock server ports, e.g. `7002-7020` | setup value, else any port                  |
+| `MOCKOON_FIREWALL`                            | Firewall commands shown in setup    | `ufw` (`firewalld`, `none`)                 |
 | `MOCKOON_UI_COOKIE_SECURE`                    | Force the Secure cookie flag        | auto (on when `x-forwarded-proto` is https) |
 
 ## Contributing

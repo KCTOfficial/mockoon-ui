@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { convertFromOpenAPI, isValidOpenAPISpec } from '@/lib/openapi-converter';
 import { normalizeEnvironment } from '../../lib/normalize-env';
+import { checkPort, portForImport } from '../../lib/port-range';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 
@@ -62,8 +63,22 @@ export async function POST(request: Request) {
 
         // Convert to Mockoon environment
         const port = portOverride ? parseInt(portOverride, 10) : undefined;
+        const portError = port === undefined ? null : checkPort(port);
+        if (portError) {
+            return Response.json({ error: portError }, { status: 400 });
+        }
         // Normalize to fill Mockoon defaults (tlsOptions, cors, headers, ...) required to start the server
         const environment = normalizeEnvironment(convertFromOpenAPI(content, port));
+
+        // The spec's server URL port (or 80/443) is usually outside the allowed range: pick a free one
+        const assignedPort = portForImport(environment.port);
+        if (assignedPort === null) {
+            return Response.json(
+                { error: 'No free port left in the allowed range' },
+                { status: 409 }
+            );
+        }
+        environment.port = assignedPort;
 
         // Generate unique filename
         const filename = generateUniqueFilename(environment.name);

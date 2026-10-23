@@ -1,5 +1,7 @@
+import fs from 'fs';
 import pm2 from 'pm2';
 import path from 'path';
+import { checkPort } from '../lib/port-range';
 
 // Hanya huruf, angka, '_' dan '-'. Mencegah path traversal dan nama khusus PM2 seperti "all".
 export const SAFE_NAME = /^[A-Za-z0-9_-]+$/;
@@ -64,6 +66,16 @@ export async function POST(req: Request) {
             }
 
             const dataFilePath = path.resolve(process.cwd(), 'data', file);
+            if (!fs.existsSync(dataFilePath)) {
+                return Response.json({ error: 'Environment file not found' }, { status: 404 });
+            }
+
+            // Files saved before the range existed (or edited by hand) may use a blocked or shared port
+            const { port } = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
+            const portError = checkPort(port, file);
+            if (portError) {
+                return Response.json({ error: `${portError}. Change it in the environment settings.` }, { status: 400 });
+            }
 
             await connect();
             try {

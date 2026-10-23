@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { normalizeEnvironment } from '../../lib/normalize-env';
+import { checkPort } from '../../lib/port-range';
 
 // Generate a UUID
 function generateUUID(): string {
@@ -40,8 +41,9 @@ export async function POST(request: Request) {
             return Response.json({ error: 'Name is required' }, { status: 400 });
         }
 
-        if (!port || typeof port !== 'number' || port < 1 || port > 65535) {
-            return Response.json({ error: 'Valid port number is required (1-65535)' }, { status: 400 });
+        const portError = checkPort(port);
+        if (portError) {
+            return Response.json({ error: portError }, { status: 400 });
         }
 
         // Create filename from name (lowercase, replace spaces with dashes)

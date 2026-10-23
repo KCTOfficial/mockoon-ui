@@ -119,16 +119,20 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                 });
                 setIsRunning(false);
             } else {
-                await fetch('/api/action', {
+                const res = await fetch('/api/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ command: 'start', file: envFile })
                 });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || 'Failed to start server');
+                }
                 setIsRunning(true);
             }
         } catch (error) {
             console.error('Action failed', error);
-            showNotification('Failed to toggle server state', 'error');
+            showNotification(error instanceof Error ? error.message : 'Failed to toggle server state', 'error');
         } finally {
             setIsServerLoading(false);
         }
@@ -144,14 +148,19 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                 body: JSON.stringify({ command: 'stop', name: processName })
             });
             await new Promise(r => setTimeout(r, 1000));
-            await fetch('/api/action', {
+            const res = await fetch('/api/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ command: 'start', file: envFile })
             });
+            if (!res.ok) {
+                setIsRunning(false);
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to restart server');
+            }
             showNotification('Server restarted successfully');
         } catch (error) {
-            showNotification('Failed to restart server', 'error');
+            showNotification(error instanceof Error ? error.message : 'Failed to restart server', 'error');
         } finally {
             setIsServerLoading(false);
         }

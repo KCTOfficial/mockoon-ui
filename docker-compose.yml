@@ -9,12 +9,16 @@ services:
     volumes:
       # Persist data directory
       - ./data:/app/data
+      # Persist the first-run setup (login, port range)
+      - ./config:/app/config
     environment:
       - NODE_ENV=production
-      # Dashboard login - set these in a .env file next to docker-compose.yml (see .env.example)
-      - MOCKOON_UI_USERNAME=${MOCKOON_UI_USERNAME}
-      - MOCKOON_UI_PASSWORD=${MOCKOON_UI_PASSWORD}
-      - MOCKOON_UI_AUTH_SECRET=${MOCKOON_UI_AUTH_SECRET}
+      # Optional overrides of the first-run setup - set them in a .env file next to docker-compose.yml (see .env.example)
+      - MOCKOON_UI_USERNAME=${MOCKOON_UI_USERNAME:-}
+      - MOCKOON_UI_PASSWORD=${MOCKOON_UI_PASSWORD:-}
+      - MOCKOON_UI_AUTH_SECRET=${MOCKOON_UI_AUTH_SECRET:-}
+      # Optional: allowed mock server ports, e.g. 7002-7020 (open the same range in the firewall)
+      - MOCKOON_PORT_RANGE=${MOCKOON_PORT_RANGE:-}
     restart: unless-stopped
     # If you need to restrict which ports are exposed, comment out network_mode: host
     # and use ports mapping instead (but you'll need to know the mock server ports):

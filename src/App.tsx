@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import Dashboard from '@/components/Dashboard';
 import LoginPage from '@/components/LoginPage';
+import SetupPage from '@/components/SetupPage';
 import { Environment } from '@/types/mockoon';
 
 type AppState =
     | { status: 'loading' }
     | { status: 'error'; message: string }
+    | { status: 'setup' }
     | { status: 'login'; configured: boolean }
     | { status: 'ready'; environments: Environment[] };
 
@@ -15,6 +17,10 @@ export default function App() {
     const load = useCallback(async () => {
         try {
             const session = await fetch('/api/auth/session').then(r => r.json());
+            if (session.setupRequired) {
+                setState({ status: 'setup' });
+                return;
+            }
             if (!session.authenticated) {
                 setState({ status: 'login', configured: session.configured });
                 return;
@@ -59,6 +65,10 @@ export default function App() {
                 </div>
             </div>
         );
+    }
+
+    if (state.status === 'setup') {
+        return <SetupPage onDone={load} />;
     }
 
     if (state.status === 'login') {

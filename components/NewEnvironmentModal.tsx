@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { XIcon } from '@primer/octicons-react';
 
 interface NewEnvironmentModalProps {
@@ -12,6 +12,23 @@ export default function NewEnvironmentModal({ isOpen, onClose, onCreate }: NewEn
     const [port, setPort] = useState(3000);
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [range, setRange] = useState({ min: 1, max: 65535 });
+
+    // Prefill the next free port of the allowed range each time the dialog opens
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        fetch('/api/environments/ports')
+            .then(res => (res.ok ? res.json() : null))
+            .then(data => {
+                if (cancelled || !data) return;
+                setRange({ min: data.min, max: data.max });
+                if (data.suggested) setPort(data.suggested);
+                else setError(`No free port left in the allowed range (${data.min}-${data.max})`);
+            })
+            .catch(() => { /* keep defaults; the server still validates */ });
+        return () => { cancelled = true; };
+    }, [isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,8 +39,8 @@ export default function NewEnvironmentModal({ isOpen, onClose, onCreate }: NewEn
             return;
         }
 
-        if (port < 1 || port > 65535) {
-            setError('Port must be between 1 and 65535');
+        if (port < range.min || port > range.max) {
+            setError(`Port must be between ${range.min} and ${range.max}`);
             return;
         }
 
@@ -86,12 +103,12 @@ export default function NewEnvironmentModal({ isOpen, onClose, onCreate }: NewEn
                                 type="number"
                                 value={port}
                                 onChange={(e) => setPort(parseInt(e.target.value) || 0)}
-                                min={1}
-                                max={65535}
+                                min={range.min}
+                                max={range.max}
                                 className="form-control w-full font-mono"
                             />
                             <p className="form-caption">
-                                The port where the mock server will run (e.g., 3000, 8080)
+                                The port where the mock server will run. Allowed: {range.min}-{range.max}
                             </p>
                         </div>
                     </div>
