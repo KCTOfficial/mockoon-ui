@@ -20,6 +20,8 @@ import ConfirmDialog from './shared/ConfirmDialog';
 import ActionMenu, { ActionMenuItem, MenuAnchor, menuAnchor } from './shared/ActionMenu';
 import WarningsDialog from './shared/WarningsDialog';
 import TransferDialog, { TransferMode, TransferResult } from './TransferDialog';
+import { ResizeHandle, useResizableWidth } from './shared/ResizablePanel';
+import { NARROW_QUERY, useMediaQuery } from './shared/useMediaQuery';
 
 export interface Hierarchy {
     folders: Folder[];
@@ -89,6 +91,9 @@ export default function RouteList({
     className = 'flex',
 }: RouteListProps) {
     const [filter, setFilter] = useState('');
+    // Resized like the environments sidebar (same limits); on phones the list takes the full width instead
+    const narrow = useMediaQuery(NARROW_QUERY);
+    const resize = useResizableWidth({ storageKey: 'routeListWidth', defaultWidth: 320 });
     const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
     const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -605,7 +610,11 @@ export default function RouteList({
     const isEmpty = tree.every(node => node === null);
 
     return (
-        <div className={`w-full md:w-80 flex-shrink-0 bg-canvas md:border-r border-border-custom flex-col overflow-hidden ${className}`}>
+        <div
+            className={`relative w-full flex-shrink-0 bg-canvas md:border-r border-border-custom flex-col overflow-hidden ${className}`}
+            style={narrow ? undefined : { width: resize.width }}
+        >
+            {!narrow && <ResizeHandle label="Resize route list" position="right-0" {...resize.handle} />}
             {/* Filter Header */}
             <div className="p-3 border-b border-border-custom bg-canvas-muted space-y-3">
                 <div className="flex items-center justify-between">

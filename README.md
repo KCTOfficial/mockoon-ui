@@ -46,6 +46,7 @@
 
 - **Route editor** - HTTP, CRUD and WebSocket routes with methods, headers, rules, responses and callbacks
 - **Folders** - Group routes in folders and subfolders; drag and drop to reorganise
+- **Resizable panels** - Drag the edge of the environments sidebar or the route list (200-480 px); widths are remembered
 - **Duplicate** - Copy a route (`/users-copy-1`) or a whole folder (`Users (copy 1)`) next to the original
 - **Copy or move to another environment** - Routes and folders, with the data buckets and callbacks they use
 - **Export & import routes** - Save a route or folder to a file named like `demo-shop-api-get-users.json` and import it into any environment, or into a new one
@@ -405,11 +406,11 @@ Deleting an environment stops its mock server and removes it from PM2; the file 
 ### Sidebar
 
 - Click the sidebar icon at the top of the sidebar to collapse it to environment initials (hover for the full name and status) or expand it again
-- **Resize** by dragging its right edge: right to widen, left to narrow, between **200 px** and **480 px** (default 256 px). Double-click the edge to reset
+- **Resize** by dragging its right edge: right to widen, left to narrow, between **200 px** and **480 px** (default 256 px). Double-click the edge to reset. The **route list** next to it resizes the same way, with the same limits (default 320 px)
 - With the keyboard: **Tab** to the edge, then **←** / **→** (hold **Shift** for bigger steps), **Home** for the minimum, **End** for the maximum
 - Each environment has a **⋯** menu: **Duplicate environment**, **Export environment**, **Delete environment…**
 - **Recycle bin** at the bottom opens the [recycle bin](#recycle-bin); it shows how many items are waiting
-- The width and the collapsed/expanded state are remembered per browser
+- The widths of both panels and the collapsed/expanded state are remembered per browser
 
 ### On Phones and Small Screens
 

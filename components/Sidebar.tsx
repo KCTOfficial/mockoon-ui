@@ -13,6 +13,7 @@ import { Environment } from '@/types/mockoon';
 import ActionMenu, { ActionMenuItem } from './shared/ActionMenu';
 import { avatarTint } from './shared/EnvAvatar';
 import { NARROW_QUERY, useMediaQuery } from './shared/useMediaQuery';
+import { ResizeHandle, useResizableWidth } from './shared/ResizablePanel';
 
 export type MainView = 'routes' | 'databuckets' | 'settings' | 'logs';
 
@@ -35,13 +36,8 @@ interface SidebarProps {
 }
 
 const COLLAPSED_KEY = 'sidebarCollapsed';
-const WIDTH_KEY = 'sidebarWidth';
 const DEFAULT_WIDTH = 256;
-const MIN_WIDTH = 200;
-const MAX_WIDTH = 480;
 const COLLAPSED_WIDTH = 56;
-
-const clampWidth = (width: number) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(width)));
 
 // Dot on the avatar: running, starting/restarting, crashed, or stopped (also when never started)
 function statusDot(status: string | undefined) {
@@ -49,15 +45,6 @@ function statusDot(status: string | undefined) {
     if (status === 'launching' || status === 'waiting restart') return { label: 'Starting', className: 'bg-attention' };
     if (status === 'errored') return { label: 'Error', className: 'bg-danger' };
     return { label: 'Stopped', className: 'bg-fg-subtle' };
-}
-
-function readWidth() {
-    try {
-        const saved = Number(localStorage.getItem(WIDTH_KEY));
-        return saved ? clampWidth(saved) : DEFAULT_WIDTH;
-    } catch {
-        return DEFAULT_WIDTH;
-    }
 }
 
 function readCollapsed() {
@@ -99,9 +86,9 @@ export default function Sidebar({ environments, activeEnvId, onSelectEnv, onAddE
     const narrow = useMediaQuery(NARROW_QUERY);
     const [overlayOpen, setOverlayOpen] = useState(false);
     const isCollapsed = narrow ? !overlayOpen : collapsed;
-    const [width, setWidth] = useState(readWidth);
-    const [isResizing, setIsResizing] = useState(false);
-    const dragStart = useRef<{ x: number; width: number } | null>(null);
+    // Same resize behaviour and limits as the route list (shared/ResizablePanel)
+    const resize = useResizableWidth({ storageKey: 'sidebarWidth', defaultWidth: DEFAULT_WIDTH });
+    const { width, isResizing } = resize;
     const hasActions = !!(onExportEnv || onDeleteEnv || onDuplicateEnv);
     const jsonInputRef = useRef<HTMLInputElement>(null);
     const openApiInputRef = useRef<HTMLInputElement>(null);
@@ -126,39 +113,6 @@ export default function Sidebar({ environments, activeEnvId, onSelectEnv, onAddE
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [overlayOpen]);
-
-    useEffect(() => {
-        try {
-            localStorage.setItem(WIDTH_KEY, String(width));
-        } catch {
-            // Storage unavailable; width just won't persist
-        }
-    }, [width]);
-
-    // Drag the right edge; pointer capture keeps the drag going outside the handle
-    const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        dragStart.current = { x: e.clientX, width };
-        setIsResizing(true);
-    };
-    const handleResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (!dragStart.current) return;
-        setWidth(clampWidth(dragStart.current.width + e.clientX - dragStart.current.x));
-    };
-    const handleResizeEnd = () => {
-        dragStart.current = null;
-        setIsResizing(false);
-    };
-    const handleResizeKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        const step = e.shiftKey ? 48 : 16;
-        if (e.key === 'ArrowLeft') setWidth(w => clampWidth(w - step));
-        else if (e.key === 'ArrowRight') setWidth(w => clampWidth(w + step));
-        else if (e.key === 'Home') setWidth(MIN_WIDTH);
-        else if (e.key === 'End') setWidth(MAX_WIDTH);
-        else return;
-        e.preventDefault();
-    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -188,25 +142,7 @@ export default function Sidebar({ environments, activeEnvId, onSelectEnv, onAddE
             style={{ width: isCollapsed ? COLLAPSED_WIDTH : narrow ? Math.min(DEFAULT_WIDTH, window.innerWidth - 32) : width }}
             aria-label="Environments"
         >
-            {!isCollapsed && !narrow && (
-                <div
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label="Resize sidebar"
-                    aria-valuenow={width}
-                    aria-valuemin={MIN_WIDTH}
-                    aria-valuemax={MAX_WIDTH}
-                    tabIndex={0}
-                    title="Drag to resize, double-click to reset"
-                    onPointerDown={handleResizeStart}
-                    onPointerMove={handleResizeMove}
-                    onPointerUp={handleResizeEnd}
-                    onPointerCancel={handleResizeEnd}
-                    onDoubleClick={() => setWidth(DEFAULT_WIDTH)}
-                    onKeyDown={handleResizeKey}
-                    className={`absolute top-0 -right-[3px] z-20 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none ${isResizing ? 'bg-accent/50' : ''}`}
-                />
-            )}
+            {!isCollapsed && !narrow && <ResizeHandle label="Resize sidebar" {...resize.handle} />}
             {/* Header */}
             <div className={`flex items-center h-12 px-2 border-b border-border-muted ${isCollapsed ? 'justify-center' : 'justify-between pl-4'}`}>
                 {!isCollapsed && (

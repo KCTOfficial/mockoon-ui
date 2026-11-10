@@ -202,6 +202,17 @@ body {
   outline-offset: -2px;
 }
 
+/*
+ * Text fields show focus with their border (.form-control:focus / :focus-within), like Primer, not with the ring
+ * above. That includes input groups, a <label class="form-control"> around an icon or prefix and a bare <input>:
+ * without this the inner input drew a second box inside the field. Unlayered, so it wins over the rule above.
+ */
+.form-control:focus-visible,
+.form-control input:focus-visible,
+.form-control textarea:focus-visible {
+  outline: none;
+}
+
 @layer components {
   /* Buttons */
   .btn {
