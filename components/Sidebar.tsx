@@ -196,8 +196,12 @@ export default function Sidebar({ environments, activeEnvId, onSelectEnv, onAddE
                                         {!isCollapsed && (
                                             <>
                                                 <span className="flex-1 min-w-0 truncate">{env.name}</span>
-                                                {/* The "..." button takes the port's place on hover, while its menu is open, and on touch screens */}
-                                                <span className={`text-xs font-mono font-normal text-fg-muted ${hasActions ? 'group-hover:invisible group-focus-within:invisible group-has-[[aria-expanded=true]]:invisible [@media(hover:none)]:invisible' : ''}`}>:{env.port}</span>
+                                                {/*
+                                                  * The "..." button takes the port's place on hover, on keyboard focus, while its menu is open
+                                                  * and on touch screens. :focus-visible, not :focus-within: a mouse click also focuses the item,
+                                                  * and that must not hide the port of the selected environment.
+                                                  */}
+                                                <span className={`text-xs font-mono font-normal text-fg-muted ${hasActions ? 'group-hover:invisible group-has-[:focus-visible]:invisible group-has-[[aria-expanded=true]]:invisible [@media(hover:none)]:invisible' : ''}`}>:{env.port}</span>
                                             </>
                                         )}
                                     </button>
@@ -206,7 +210,7 @@ export default function Sidebar({ environments, activeEnvId, onSelectEnv, onAddE
                                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
                                         <ActionMenu
                                             label={`Actions for ${env.name}`}
-                                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
+                                            className="opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 [@media(hover:none)]:opacity-100"
                                             items={[
                                                 ...(onDuplicateEnv
                                                     ? [{ key: 'duplicate', label: 'Duplicate environment', icon: <DuplicateIcon />, onSelect: () => onDuplicateEnv(env.uuid) }]
