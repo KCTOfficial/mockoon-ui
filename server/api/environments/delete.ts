@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { getDataDir, resolveEnvFile } from '../../lib/data-dir';
+import { getTrashDir, resolveEnvFile } from '../../lib/data-dir';
 import { SAFE_NAME, removeProcess } from '../action';
 
 /**
  * Deletes an environment: stops and removes its mock server from PM2, then moves the file to
- * data/.deleted/ (not loaded by the UI) so it can still be recovered by moving it back.
+ * data/.deleted/, the recycle bin, where it can be restored or deleted permanently (trash.ts).
  */
 export async function POST(req: Request) {
     try {
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
             await removeProcess(processName);
         }
 
-        const trashDir = path.join(getDataDir(), '.deleted');
+        const trashDir = getTrashDir();
         fs.mkdirSync(trashDir, { recursive: true });
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
         const trashPath = path.join(trashDir, `${processName}-${stamp}.json`);

@@ -1,5 +1,5 @@
 import { loadEnvironments } from './data-dir';
-import { getSettings, getUiPort } from './settings';
+import { getSettings, getUiPort, isPortFree } from './settings';
 
 export interface PortRange {
     min: number;
@@ -51,6 +51,22 @@ export function findFreePort(): number | null {
     const used = new Set([getUiPort(), ...loadEnvironments().map(env => env.port)]);
     for (let port = min; port <= max; port++) {
         if (!used.has(port)) return port;
+    }
+    return null;
+}
+
+/**
+ * Port for an environment coming back from the recycle bin: its own port when it is still allowed, not assigned
+ * to another environment and nothing listens on it; otherwise the first such port in the range. Null when none is left.
+ */
+export async function findAvailablePort(preferred: unknown): Promise<number | null> {
+    if (checkPort(preferred) === null && await isPortFree(preferred as number)) {
+        return preferred as number;
+    }
+    const { min, max } = getPortRange();
+    const used = new Set([getUiPort(), ...loadEnvironments().map(env => env.port)]);
+    for (let port = min; port <= max; port++) {
+        if (!used.has(port) && await isPortFree(port)) return port;
     }
     return null;
 }

@@ -557,6 +557,28 @@ body {
   }
   .ActionList-item svg {
     color: var(--fg-muted);
+    flex-shrink: 0;
+  }
+  .ActionList-item:disabled {
+    color: var(--fg-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .ActionList-item:disabled:hover {
+    background: transparent;
+  }
+  /* Primer "danger" variant: destructive items in menus */
+  .ActionList-item--danger,
+  .ActionList-item--danger svg {
+    color: var(--danger-fg);
+  }
+  .ActionList-item--danger:hover {
+    background: var(--danger-subtle);
+  }
+  .ActionList-divider {
+    height: 1px;
+    margin: 4px -8px;
+    background: var(--border-muted);
   }
   .Tooltip {
     padding: 6px 8px;

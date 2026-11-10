@@ -6,13 +6,7 @@
   "latency": 0,
   "port": 7003,
   "hostname": "",
-  "folders": [
-    {
-      "uuid": "e7f37787-7ab0-4fc9-a7cd-fb961d824967",
-      "name": "tes",
-      "children": []
-    }
-  ],
+  "folders": [],
   "routes": [
     {
       "uuid": "bcd69008-1c00-4899-9a49-fb4c5fb875f7",
@@ -80,64 +74,6 @@
       "streamingInterval": 0
     },
     {
-      "uuid": "a8e17b54-da0a-4e8a-96c8-750cfb5df5f4",
-      "type": "http",
-      "documentation": "Requires header Authorization: Bearer dummy-token-123",
-      "method": "get",
-      "endpoint": "me",
-      "responses": [
-        {
-          "uuid": "d5ee9fba-b43f-4ba8-b934-1d4593194636",
-          "body": "{\n  \"error\": \"Missing or invalid token\"\n}",
-          "latency": 0,
-          "statusCode": 401,
-          "label": "Unauthorized",
-          "headers": [],
-          "bodyType": "INLINE",
-          "filePath": "",
-          "databucketID": "",
-          "sendFileAsBody": false,
-          "rules": [],
-          "rulesOperator": "OR",
-          "disableTemplating": false,
-          "fallbackTo404": false,
-          "default": true,
-          "crudKey": "id",
-          "callbacks": []
-        },
-        {
-          "uuid": "3053e896-abd7-4531-ae29-a2d1ad62012e",
-          "body": "{\n  \"id\": 1,\n  \"username\": \"demo\",\n  \"name\": \"Demo User\",\n  \"email\": \"demo@example.com\",\n  \"roles\": [\n    \"user\"\n  ]\n}",
-          "latency": 0,
-          "statusCode": 200,
-          "label": "Profile (Bearer dummy-token-123)",
-          "headers": [],
-          "bodyType": "INLINE",
-          "filePath": "",
-          "databucketID": "",
-          "sendFileAsBody": false,
-          "rules": [
-            {
-              "target": "header",
-              "modifier": "Authorization",
-              "value": "Bearer dummy-token-123",
-              "invert": false,
-              "operator": "equals"
-            }
-          ],
-          "rulesOperator": "OR",
-          "disableTemplating": false,
-          "fallbackTo404": false,
-          "default": false,
-          "crudKey": "id",
-          "callbacks": []
-        }
-      ],
-      "responseMode": null,
-      "streamingMode": null,
-      "streamingInterval": 0
-    },
-    {
       "uuid": "d5b4bfdc-f0dc-4a53-b22b-52ba2f52ae18",
       "type": "http",
       "documentation": "Health check",
@@ -167,6 +103,64 @@
       "responseMode": null,
       "streamingMode": null,
       "streamingInterval": 0
+    },
+    {
+      "uuid": "c3d1e504-969f-4b4b-81c7-4c5589d75426",
+      "type": "http",
+      "documentation": "Requires header Authorization: Bearer dummy-token-123",
+      "method": "get",
+      "endpoint": "me",
+      "responses": [
+        {
+          "uuid": "d7e39933-a7ad-46dc-9f97-3e16cc1c4400",
+          "body": "{\n  \"error\": \"Missing or invalid token\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Unauthorized",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "f8bc4abb-bf0b-48d1-8bb8-094143c94455",
+          "body": "{\n  \"id\": 1,\n  \"username\": \"demo\",\n  \"name\": \"Demo User\",\n  \"email\": \"demo@example.com\",\n  \"roles\": [\n    \"user\"\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Profile (Bearer dummy-token-123)",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "Authorization",
+              "value": "Bearer dummy-token-123",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
     }
   ],
   "rootChildren": [
@@ -176,15 +170,11 @@
     },
     {
       "type": "route",
-      "uuid": "a8e17b54-da0a-4e8a-96c8-750cfb5df5f4"
-    },
-    {
-      "type": "route",
       "uuid": "d5b4bfdc-f0dc-4a53-b22b-52ba2f52ae18"
     },
     {
-      "type": "folder",
-      "uuid": "e7f37787-7ab0-4fc9-a7cd-fb961d824967"
+      "type": "route",
+      "uuid": "c3d1e504-969f-4b4b-81c7-4c5589d75426"
     }
   ],
   "proxyMode": false,

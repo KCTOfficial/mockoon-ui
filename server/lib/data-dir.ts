@@ -5,6 +5,9 @@ import { normalizeEnvironment } from './normalize-env';
 
 export const getDataDir = () => path.join(process.cwd(), 'data');
 
+/** Recycle bin: deleted environments, not loaded as environments (dot folder, and only data/*.json is read). */
+export const getTrashDir = () => path.join(getDataDir(), '.deleted');
+
 /**
  * Resolves an environment filename inside data/. Returns null for anything that is not a plain
  * `<name>.json` file name, so request input can never escape the data directory.

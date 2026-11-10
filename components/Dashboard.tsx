@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Environment, Route, LogEntry } from '@/types/mockoon';
 import Sidebar, { MainView } from './Sidebar';
 import RouteList from './RouteList';
@@ -8,10 +8,15 @@ import ResizableSplitter from './ResizableSplitter';
 import EnvironmentSettings from './EnvironmentSettings';
 import DataBucketsEditor from './DataBucketsEditor';
 import NewEnvironmentModal from './NewEnvironmentModal';
+import RecycleBinDialog, { RestoreResult } from './RecycleBinDialog';
+import { TransferResult } from './TransferDialog';
+import ImportRoutesDialog, { RoutesFileSummary, RoutesImportResult, summarizeRoutesFile } from './ImportRoutesDialog';
+import WarningsDialog from './shared/WarningsDialog';
 import { ThemeToggle } from './ThemeToggle';
 import { LogoutButton } from './LogoutButton';
 import { AccountButton } from './AccountButton';
 import {
+    ArrowLeftIcon,
     CheckCircleIcon,
     DatabaseIcon,
     GearIcon,
@@ -42,12 +47,36 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
     const [isNewEnvModalOpen, setIsNewEnvModalOpen] = useState(false);
     const [envToDelete, setEnvToDelete] = useState<Environment | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isTrashOpen, setIsTrashOpen] = useState(false);
+    const [trashCount, setTrashCount] = useState(0);
+    // A routes export picked with the sidebar's JSON import, waiting for "where should they go?"
+    const [routesImport, setRoutesImport] = useState<{ file: File; summary: RoutesFileSummary } | null>(null);
+    const [importWarnings, setImportWarnings] = useState<{ summary: string; warnings: string[] } | null>(null);
 
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+    const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const dismissNotification = () => {
+        if (notificationTimer.current) clearTimeout(notificationTimer.current);
+        notificationTimer.current = null;
+        setNotification(null);
+    };
+
+    // No timer firing after sign-out
+    useEffect(() => () => {
+        if (notificationTimer.current) clearTimeout(notificationTimer.current);
+    }, []);
+
     const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
         setNotification({ message, type });
-        setTimeout(() => setNotification(null), 3000);
+        // A new toast restarts the timer, so an older one cannot close it early; longer messages and errors stay longer
+        if (notificationTimer.current) clearTimeout(notificationTimer.current);
+        const duration = Math.min(10000, Math.max(type === 'error' ? 6000 : 4000, message.length * 60));
+        notificationTimer.current = setTimeout(() => {
+            notificationTimer.current = null;
+            setNotification(null);
+        }, duration);
     };
 
     const handleUpdateEnvironment = (envUuid: string, updatedFields: Partial<Environment>) => {
@@ -68,6 +97,56 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                 })
             };
         }));
+    };
+
+    const refreshTrashCount = useCallback(() => {
+        fetch('/api/environments/trash')
+            .then(res => (res.ok ? res.json() : null))
+            .then(data => { if (data) setTrashCount(data.items.length); })
+            .catch(() => { /* the count is only a hint; the dialog loads the list itself */ });
+    }, []);
+
+    useEffect(() => {
+        refreshTrashCount();
+    }, [refreshTrashCount]);
+
+    const handleRestored = (result: RestoreResult) => {
+        if ('target' in result) {
+            // A route or folder went back into an existing environment: show it there
+            const { target, name, restoredToFolder, warnings, kind, itemUuids } = result;
+            const current = environments.find(env => env.filename === target.filename);
+            setEnvironments(prev => prev.map(env => (env.filename === target.filename ? { ...target, uuid: env.uuid } : env)));
+            if (current) setActiveEnvId(current.uuid);
+            setActiveView('routes');
+            setActiveRouteId(kind === 'route' ? itemUuids[0] ?? '' : '');
+            const where = restoredToFolder ? '' : ' (its folder is gone, so at the top level)';
+            const extra = warnings.length ? ` ${warnings.join(' ')}` : '';
+            showNotification(`Restored ${name} to "${target.name}"${where}.${extra}`);
+            return;
+        }
+        const { environment, previousPort, portChanged } = result;
+        setEnvironments(prev => [...prev, environment]);
+        setActiveEnvId(environment.uuid);
+        setActiveRouteId('');
+        showNotification(portChanged && previousPort !== null
+            ? `Restored "${environment.name}" on port ${environment.port} (port ${previousPort} is not available)`
+            : `Restored "${environment.name}" on port ${environment.port}`);
+    };
+
+    // An environment the server just saved (copy, move, import): replace ours, keeping the uuid the UI knows it by
+    const replaceSaved = (saved: Environment) => {
+        setEnvironments(prev => prev.map(env => (env.filename === saved.filename ? { ...saved, uuid: env.uuid } : env)));
+    };
+
+    const handleTransferred = (result: TransferResult) => {
+        replaceSaved(result.target);
+        if (result.mode === 'move') {
+            replaceSaved(result.source);
+            // Items are moved from the active environment; the open route may be among them
+            if (activeRouteId && !result.source.routes.some(route => route.uuid === activeRouteId)) {
+                setActiveRouteId('');
+            }
+        }
     };
 
     // Centralized Log Store
@@ -249,7 +328,36 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
         }
     };
 
+    const handleRoutesImported = ({ created, target, routeCount, folderCount, warnings }: RoutesImportResult) => {
+        const existing = environments.find(env => env.filename === target.filename);
+        if (created || !existing) {
+            setEnvironments(prev => [...prev, target]);
+            setActiveEnvId(target.uuid);
+        } else {
+            setEnvironments(prev => prev.map(env => (env.filename === target.filename ? { ...target, uuid: env.uuid } : env)));
+            setActiveEnvId(existing.uuid);
+        }
+        setActiveView('routes');
+        setActiveRouteId('');
+        const what = `${routeCount} route${routeCount === 1 ? '' : 's'}${folderCount ? ` in ${folderCount} folder${folderCount === 1 ? '' : 's'}` : ''}`;
+        const summary = created
+            ? `Created "${target.name}" on port ${target.port} with ${what}.`
+            : `Imported ${what} into "${target.name}".`;
+        if (warnings.length) setImportWarnings({ summary, warnings });
+        else showNotification(summary);
+    };
+
     const handleImportEnvironment = async (file: File) => {
+        // A routes export (not a whole environment): ask where the routes should go first
+        try {
+            const summary = summarizeRoutesFile(JSON.parse(await file.text()));
+            if (summary) {
+                setRoutesImport({ file, summary });
+                return;
+            }
+        } catch {
+            // Not JSON: the server import below reports it
+        }
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -271,6 +379,26 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
             showNotification(`Environment "${data.environment.name}" imported successfully`);
         } catch (error: any) {
             showNotification(error.message || 'Failed to import environment', 'error');
+        }
+    };
+
+    const handleDuplicateEnvironment = async (id: string) => {
+        const source = environments.find(env => env.uuid === id);
+        if (!source?.filename) return;
+        try {
+            const res = await fetch('/api/environments/duplicate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: source.filename }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Failed to duplicate environment');
+            setEnvironments(prev => [...prev, data.environment]);
+            setActiveEnvId(data.environment.uuid);
+            setActiveRouteId('');
+            showNotification(`Duplicated as "${data.environment.name}" on port ${data.environment.port}`);
+        } catch (error) {
+            showNotification(error instanceof Error ? error.message : 'Failed to duplicate environment', 'error');
         }
     };
 
@@ -326,7 +454,8 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                 setActiveRouteId('');
             }
             setEnvToDelete(null);
-            showNotification(`Environment "${target.name}" deleted`);
+            refreshTrashCount();
+            showNotification(`Environment "${target.name}" moved to the recycle bin`);
         } catch (error: any) {
             showNotification(error.message || 'Failed to delete environment', 'error');
         } finally {
@@ -369,26 +498,31 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
         <div className="flex flex-col h-screen w-full overflow-hidden bg-canvas text-fg-default">
             {/* Global Header (GitHub-style app header + repository tabs) */}
             <header className="flex-shrink-0 bg-header border-b border-border-custom z-10">
-                <div className="h-14 flex items-center justify-between gap-4 px-4">
-                    <div className="flex items-center gap-3 min-w-0">
+                <div className="h-14 flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <span className="text-fg-default flex-shrink-0"><ServerIcon size={24} /></span>
                         <nav aria-label="Breadcrumb" className="flex items-center gap-1 min-w-0 text-sm">
-                            <span className="text-fg-default">Mockoon</span>
-                            <span className="text-fg-muted">/</span>
+                            <span className="hidden sm:inline text-fg-default">Mockoon</span>
+                            <span className="hidden sm:inline text-fg-muted">/</span>
                             <h1 className="font-semibold text-fg-default truncate">{activeEnv?.name || 'No Environment'}</h1>
                         </nav>
                         {activeEnv && (
                             <>
-                                <span className={`Label ${isRunning ? 'text-success border-success-muted' : 'text-fg-muted'}`}>
-                                    <span className={`w-2 h-2 rounded-full mr-1.5 ${isRunning ? 'bg-success' : 'bg-fg-subtle'}`} />
-                                    {isRunning ? 'Running' : 'Stopped'}
+                                <span
+                                    className={`Label flex-shrink-0 ${isRunning ? 'text-success border-success-muted' : 'text-fg-muted'}`}
+                                    title={isRunning ? 'Running' : 'Stopped'}
+                                >
+                                    <span className={`w-2 h-2 rounded-full sm:mr-1.5 ${isRunning ? 'bg-success' : 'bg-fg-subtle'}`} />
+                                    {/* Only the dot on phones */}
+                                    <span className="hidden sm:inline">{isRunning ? 'Running' : 'Stopped'}</span>
+                                    <span className="sr-only sm:hidden">{isRunning ? 'Running' : 'Stopped'}</span>
                                 </span>
                                 <span className="hidden md:inline text-xs text-fg-muted font-mono">localhost:{activeEnv.port}</span>
                             </>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <button
                             onClick={toggleServer}
                             disabled={isServerLoading || !activeEnv}
@@ -403,11 +537,12 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                             disabled={!isRunning || isServerLoading}
                             className="btn btn-sm"
                             title="Restart server"
+                            aria-label="Restart server"
                         >
                             <SyncIcon className={isServerLoading ? 'animate-spin' : undefined} />
-                            Restart
+                            <span className="hidden sm:inline">Restart</span>
                         </button>
-                        <div className="h-5 w-px bg-border-custom mx-1" />
+                        <div className="hidden sm:block h-5 w-px bg-border-custom mx-1" />
                         <ThemeToggle />
                         <AccountButton notify={showNotification} />
                         <LogoutButton onLogout={onLogout} />
@@ -415,7 +550,7 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                 </div>
 
                 {/* Navigation Tabs */}
-                <nav className="UnderlineNav px-4 min-h-0 h-12" aria-label="Environment">
+                <nav className="UnderlineNav px-2 sm:px-4 min-h-0 h-12 overflow-x-auto overflow-y-hidden" aria-label="Environment">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
@@ -445,6 +580,9 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                     envStatuses={envStatuses}
                     onExportEnv={handleExportEnvironment}
                     onDeleteEnv={(id) => setEnvToDelete(environments.find(env => env.uuid === id) || null)}
+                    onDuplicateEnv={handleDuplicateEnvironment}
+                    onOpenTrash={() => setIsTrashOpen(true)}
+                    trashCount={trashCount}
                 />
 
                 {/* Main Content Area */}
@@ -469,6 +607,8 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                                 if (activeEnvId) handleUpdateEnvironment(activeEnvId, hierarchy);
                             }}
                             onRouteDeleted={(routeUuid) => {
+                                // The route went to the recycle bin
+                                refreshTrashCount();
                                 if (activeEnvId) {
                                     setEnvironments(prev => prev.map(env =>
                                         env.uuid === activeEnvId
@@ -489,11 +629,26 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                                 }
                             }}
                             notify={showNotification}
+                            environments={environments}
+                            onTransferred={handleTransferred}
+                            onEnvironmentSaved={replaceSaved}
+                            className={activeRoute ? 'hidden md:flex' : 'flex'}
                         />
                     )}
 
-                    {/* Pane 3: Main Editor Screen */}
-                    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                    {/* Pane 3: Main Editor Screen (on phones only once a route is open) */}
+                    <div className={`flex-1 flex-col min-w-0 overflow-hidden ${activeView === 'routes' && !activeRoute ? 'hidden md:flex' : 'flex'}`}>
+                        {activeView === 'routes' && activeRoute && (
+                            <div className="md:hidden flex items-center gap-2 px-2 h-10 border-b border-border-muted bg-canvas-muted flex-shrink-0">
+                                <button onClick={() => setActiveRouteId('')} className="btn btn-sm btn-invisible">
+                                    <ArrowLeftIcon />
+                                    Routes
+                                </button>
+                                <span className="min-w-0 truncate text-xs font-mono text-fg-muted">
+                                    {(activeRoute.method || activeRoute.type).toUpperCase()} /{activeRoute.endpoint.replace(/^\//, '')}
+                                </span>
+                            </div>
+                        )}
                         <ResizableSplitter
                             isVertical={true}
                             initialSize={250}
@@ -546,13 +701,18 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
             {/* Global Notifications (Primer toast) */}
             {notification && (
                 <div
-                    role="status"
-                    className="Overlay fixed bottom-6 left-6 z-50 flex items-stretch overflow-hidden rounded-md max-w-md"
+                    role={notification.type === 'error' ? 'alert' : 'status'}
+                    className="Overlay fixed bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-auto z-50 flex items-stretch overflow-hidden rounded-md sm:max-w-md"
                 >
-                    <div className={`flex items-center px-3 text-white ${notification.type === 'success' ? 'bg-success-emphasis' : 'bg-danger-emphasis'}`}>
+                    <div className={`flex items-center px-3 text-white flex-shrink-0 ${notification.type === 'success' ? 'bg-success-emphasis' : 'bg-danger-emphasis'}`}>
                         {notification.type === 'success' ? <CheckCircleIcon /> : <XCircleIcon />}
                     </div>
-                    <div className="px-4 py-3 text-sm text-fg-default">{notification.message}</div>
+                    <div className="flex-1 min-w-0 pl-4 pr-1 py-3 text-sm text-fg-default break-words">{notification.message}</div>
+                    <div className="flex items-start p-2 flex-shrink-0">
+                        <button onClick={dismissNotification} className="btn btn-invisible btn-icon btn-sm" aria-label="Dismiss notification" title="Dismiss">
+                            <XIcon />
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -572,8 +732,8 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                                 Its mock server (port {envToDelete.port}) will be stopped and removed from PM2.
                             </div>
                             <p className="text-fg-muted">
-                                The file <code className="font-mono text-fg-default">{envToDelete.filename}</code> is moved to{' '}
-                                <code className="font-mono text-fg-default">data/.deleted/</code>, so it can still be restored from the server.
+                                It is moved to the <strong className="text-fg-default">Recycle bin</strong> (bottom of the sidebar),
+                                where it can be restored or deleted permanently.
                             </p>
                         </div>
                         <div className="flex justify-end gap-2 px-4 py-3 border-t border-border-muted">
@@ -586,6 +746,36 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                         </div>
                     </div>
                 </div>
+            )}
+
+            {routesImport && (
+                <ImportRoutesDialog
+                    file={routesImport.file}
+                    summary={routesImport.summary}
+                    environments={environments}
+                    activeFilename={activeEnv?.filename}
+                    onClose={() => setRoutesImport(null)}
+                    onImported={handleRoutesImported}
+                />
+            )}
+
+            {importWarnings && (
+                <WarningsDialog
+                    title="Import finished"
+                    summary={importWarnings.summary}
+                    warnings={importWarnings.warnings}
+                    onClose={() => setImportWarnings(null)}
+                />
+            )}
+
+            {isTrashOpen && (
+                <RecycleBinDialog
+                    environments={environments}
+                    onClose={() => setIsTrashOpen(false)}
+                    onRestored={handleRestored}
+                    onCountChange={setTrashCount}
+                    notify={showNotification}
+                />
             )}
 
             {/* New Environment Modal */}

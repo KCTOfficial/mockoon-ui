@@ -9,37 +9,6 @@
   "folders": [],
   "routes": [
     {
-      "uuid": "23fe2df6-c381-4ea4-8cb6-ba5053e47e73",
-      "type": "http",
-      "documentation": "Simple health/hello check",
-      "method": "get",
-      "endpoint": "hello",
-      "responses": [
-        {
-          "uuid": "8c1db1e4-0467-4cb9-83f2-0cd29c6edb44",
-          "body": "{\n  \"message\": \"Hello from Mockoon\",\n  \"time\": \"{{now 'yyyy-MM-dd HH:mm:ss'}}\"\n}",
-          "latency": 0,
-          "statusCode": 200,
-          "label": "Hello",
-          "headers": [],
-          "bodyType": "INLINE",
-          "filePath": "",
-          "databucketID": "",
-          "sendFileAsBody": false,
-          "rules": [],
-          "rulesOperator": "OR",
-          "disableTemplating": false,
-          "fallbackTo404": false,
-          "default": true,
-          "crudKey": "id",
-          "callbacks": []
-        }
-      ],
-      "responseMode": null,
-      "streamingMode": null,
-      "streamingInterval": 0
-    },
-    {
       "uuid": "fdb12bb8-d41d-42f9-8822-56480816ed92",
       "type": "http",
       "documentation": "List of 5 random products",
@@ -189,13 +158,40 @@
       "responseMode": null,
       "streamingMode": null,
       "streamingInterval": 0
+    },
+    {
+      "uuid": "0070dd6c-7122-4073-ab65-3f6b14b26fbe",
+      "type": "http",
+      "documentation": "Simple health/hello check",
+      "method": "get",
+      "endpoint": "hello",
+      "responses": [
+        {
+          "uuid": "1a9950b1-87f1-4ab3-9201-357ef4c74c0f",
+          "body": "{\n  \"message\": \"Hello from Mockoon\",\n  \"time\": \"{{now 'yyyy-MM-dd HH:mm:ss'}}\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Hello",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
     }
   ],
   "rootChildren": [
-    {
-      "type": "route",
-      "uuid": "23fe2df6-c381-4ea4-8cb6-ba5053e47e73"
-    },
     {
       "type": "route",
       "uuid": "fdb12bb8-d41d-42f9-8822-56480816ed92"
@@ -211,6 +207,10 @@
     {
       "type": "route",
       "uuid": "bfb2cddf-3ce1-4387-bddb-0369cd2afa07"
+    },
+    {
+      "type": "route",
+      "uuid": "0070dd6c-7122-4073-ab65-3f6b14b26fbe"
     }
   ],
   "proxyMode": false,

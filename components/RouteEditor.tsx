@@ -335,12 +335,13 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
     return (
         <div className="flex-1 flex flex-col bg-canvas overflow-hidden">
             {/* 1. Top Header (Endpoint Config) */}
-            <div className="px-4 py-3 border-b border-border-custom flex items-center gap-2">
-                <div className="flex flex-1 min-w-0">
+            {/* Phones: the response modes wrap under the method + path, so the path stays editable */}
+            <div className="px-3 sm:px-4 py-3 border-b border-border-custom flex flex-wrap items-center gap-2">
+                <div className="flex flex-1 min-w-[220px]">
                     <select
                         value={methodValue}
                         onChange={(e) => handleUpdateRoute({ method: e.target.value as any })}
-                        className={`form-control !rounded-r-none font-mono font-semibold text-xs uppercase w-[104px] flex-shrink-0 ${methodColor[methodValue] || 'text-fg-default'}`}
+                        className={`form-control !rounded-r-none font-mono font-semibold text-xs uppercase w-[88px] sm:w-[104px] flex-shrink-0 ${methodColor[methodValue] || 'text-fg-default'}`}
                         aria-label="HTTP method"
                     >
                         {['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].map(m => (
@@ -478,8 +479,9 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
             </div>
 
             {/* 3. Tabs & Response Settings */}
-            <div className="px-4 border-b border-border-custom flex items-center justify-between gap-4">
-                <nav className="UnderlineNav min-h-0 h-12 -ml-2" aria-label="Response">
+            {/* Below md: tabs on their own row, status and latency under them */}
+            <div className="px-3 sm:px-4 border-b border-border-custom flex flex-wrap md:flex-nowrap items-center justify-between gap-x-4">
+                <nav className="UnderlineNav min-h-0 min-w-0 w-full md:w-auto h-12 -ml-2 overflow-x-auto overflow-y-hidden no-scrollbar" aria-label="Response">
                     {(['body', 'headers', 'rules', 'settings'] as const).map((tab) => {
                         // Check if rules tab should be disabled
                         const rulesDisablingModes = ['RANDOM', 'SEQUENTIAL', 'DISABLE_RULES'];
@@ -504,13 +506,13 @@ export default function RouteEditor({ route, envFilename, onSave, notify }: Rout
                     })}
                 </nav>
 
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-3 sm:gap-4 text-xs pb-2 md:pb-0">
                     <label className="flex items-center gap-2">
                         <span className="text-fg-muted font-semibold">Status</span>
                         <select
                             value={activeResponse.statusCode}
                             onChange={(e) => handleUpdateResponse({ statusCode: parseInt(e.target.value) })}
-                            className="form-control form-control-sm w-52"
+                            className="form-control form-control-sm w-40 sm:w-52"
                         >
                             <optgroup label="2xx Success">
                                 <option value="200">200 - OK</option>

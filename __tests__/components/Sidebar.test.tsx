@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Sidebar from '@/components/Sidebar';
 import { Environment } from '@/types/mockoon';
@@ -79,7 +79,9 @@ describe('Sidebar Component', () => {
         const onDeleteEnv = jest.fn();
         render(<Sidebar {...mockProps} onDeleteEnv={onDeleteEnv} />);
 
-        await user.click(screen.getByRole('button', { name: 'Delete Beta API' }));
+        await user.click(screen.getByRole('button', { name: 'Actions for Beta API' }));
+        expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Delete environment…']);
+        await user.click(screen.getByRole('menuitem', { name: 'Delete environment…' }));
 
         expect(onDeleteEnv).toHaveBeenCalledWith('env-2');
         expect(mockProps.onSelectEnv).not.toHaveBeenCalled();
@@ -121,5 +123,37 @@ describe('Sidebar Component', () => {
         unmount();
         render(<Sidebar {...mockProps} />);
         expect(screen.getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute('aria-valuenow', '200');
+    });
+
+    it('shows the recycle bin button with its count', async () => {
+        const user = userEvent.setup();
+        const onOpenTrash = jest.fn();
+        render(<Sidebar {...mockProps} onOpenTrash={onOpenTrash} trashCount={3} />);
+
+        const button = screen.getByRole('button', { name: 'Recycle bin, 3 items' });
+        expect(button).toHaveTextContent('3');
+        await user.click(button);
+        expect(onOpenTrash).toHaveBeenCalled();
+    });
+
+    it('hides the recycle bin button without a handler', () => {
+        render(<Sidebar {...mockProps} />);
+        expect(screen.queryByRole('button', { name: /Recycle bin/ })).not.toBeInTheDocument();
+    });
+
+    it('lists export and delete, with icons, in the environment menu', async () => {
+        const user = userEvent.setup();
+        const onExportEnv = jest.fn();
+        render(<Sidebar {...mockProps} onExportEnv={onExportEnv} onDeleteEnv={jest.fn()} />);
+
+        await user.click(screen.getByRole('button', { name: 'Actions for Alpha API' }));
+        const items = screen.getAllByRole('menuitem');
+        expect(items.map(i => i.textContent)).toEqual(['Export environment', 'Delete environment…']);
+        items.forEach(item => expect(item.querySelector('svg')).not.toBeNull());
+        expect(within(screen.getByRole('menu')).getByRole('separator')).toBeInTheDocument();
+
+        await user.click(items[0]);
+        expect(onExportEnv).toHaveBeenCalledWith('env-1');
+        expect(mockProps.onSelectEnv).not.toHaveBeenCalled();
     });
 });

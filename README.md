@@ -34,23 +34,55 @@
 
 ## Features
 
-- **Account Management** - Change the username and password from the UI, or run the setup again; a forgotten password can be reset from `.env`
-- **Data Buckets** - Create and manage reusable data buckets for your mocks
-- **Delete Confirmations** - Environments, routes, responses and data buckets are only deleted after confirming in a dialog
-- **Docker Ready** - Includes Dockerfile and docker-compose for containerized deployment
-- **Environment Export** - Download any environment as a Mockoon environment file, ready to import again or open in Mockoon
-- **Environment Management** - Create, edit, and manage multiple mock API environments
-- **Firewall Hints** - The setup shows the exact commands to open the ports for ufw, firewalld or Windows Firewall
-- **First-Run Setup** - A setup page on first start sets the login, the UI port and the mock server port range; no `.env` needed
-- **GitHub-style UI** - Follows GitHub's Primer design system (colors, buttons, tabs) with a collapsible, resizable sidebar
-- **Light & Dark Themes** - Follows the system theme, or pick light/dark manually
-- **Login Authentication** - Protects the dashboard with username/password sign-in (password stored as a scrypt hash) and session-based access control
-- **Mockoon Powered** - Built on top of [Mockoon](https://mockoon.com/) for reliable API mocking
-- **OpenAPI Import** - Import OpenAPI/Swagger specifications to auto-generate mock environments
-- **Port Range & Port Picker** - Mock servers only use ports from an allowed range, each port at most once; ports are picked from a list showing which are taken
-- **Real-time Logs** - Server-Sent Events (SSE) powered live log streaming
-- **Route Configuration** - Full support for HTTP methods, headers, responses, and callbacks
-- **Server Status at a Glance** - The sidebar shows for every environment whether its mock server is running, starting, crashed or stopped
+### Environments
+
+- **Create & manage** - Several mock API environments side by side, each with its own port and mock server
+- **Duplicate** - Copy an environment in one click as `<name> (copy 1)`, on the next free port so both can run
+- **Import** - Upload a Mockoon environment (**JSON**) or an OpenAPI/Swagger spec (**OpenAPI**) to generate one
+- **Export** - Download any environment as a Mockoon file, ready to import again or open in Mockoon desktop
+- **Server status at a glance** - Every environment in the sidebar shows whether its mock server is running, starting, crashed or stopped
+
+### Routes & Folders
+
+- **Route editor** - HTTP, CRUD and WebSocket routes with methods, headers, rules, responses and callbacks
+- **Folders** - Group routes in folders and subfolders; drag and drop to reorganise
+- **Duplicate** - Copy a route (`/users-copy-1`) or a whole folder (`Users (copy 1)`) next to the original
+- **Copy or move to another environment** - Routes and folders, with the data buckets and callbacks they use
+- **Export & import routes** - Save a route or folder to a file named like `demo-shop-api-get-users.json` and import it into any environment, or into a new one
+- **Data buckets** - Reusable data for your responses
+
+### Safe Deletes
+
+- **Nothing is lost by accident** - Deleted environments **and** deleted routes go to the recycle bin first
+- **Restore** - Environments come back on a free port; routes go back to their environment and folder
+- **Smart fallback** - A route whose environment is gone can be restored into another environment of your choice
+- **Delete permanently** - One item at a time, or empty the whole bin
+
+### Ports & Servers
+
+- **Port range & picker** - Mock servers only use ports from an allowed range, each at most once; ports are picked from a list showing which are taken
+- **Change the range anytime** - Widen or narrow it from **Account**, no restart or new setup needed
+- **Firewall hints** - The exact commands to open the ports for ufw, firewalld or Windows Firewall
+- **Real-time logs** - Live request logs, streamed with Server-Sent Events (SSE)
+
+### Access & Setup
+
+- **First-run setup** - Sets the login, the UI port and the mock server port range; no `.env` needed
+- **Login** - Username/password sign-in (password stored as a scrypt hash) with session-based access
+- **Account management** - Change the username, password or port range, or run the setup again; a forgotten password can be reset from `.env`
+
+### Interface
+
+- **GitHub look & feel** - Follows GitHub's Primer design system: buttons, menus, dialogs, tabs and colours
+- **Tidy action menus** - One **⋯** menu per environment, route and folder, with icon + label items, instead of a row of buttons
+- **Works on phones and tablets** - Single-pane layout on small screens, touch-friendly menus, nothing cut off
+- **Light & dark themes** - Follows the system theme, or pick one manually
+- **Clear feedback** - Notifications can be dismissed; every destructive action asks for confirmation first
+
+### Deployment
+
+- **Docker ready** - Dockerfile and docker-compose included
+- **Mockoon powered** - Built on [Mockoon](https://mockoon.com/) for reliable API mocking
 
 ## Screenshots
 
@@ -204,15 +236,64 @@ Environments and running mock servers are not touched. As with the first run, co
 2. Enter the environment name and pick the port from the list (the next free port is preselected)
 3. Add routes, responses, and data buckets as needed
 
-### Organizing Routes in Folders
+**Duplicate an environment:** open its **⋯** menu in the sidebar → **Duplicate environment**. The copy is called `<name> (copy 1)` (then `(copy 2)`, …), gets the first free port of the range and its own file, and is selected right away. Routes, folders, responses, data buckets and callbacks are all copied; its mock server starts stopped.
 
-- **+ ▾ → Folder** in the route list adds a folder and opens its name for editing (Enter saves, Esc cancels)
-- Hover a folder for its buttons: **+** adds a route or subfolder inside it, the pencil renames it (or double-click the name), the arrow moves it, the trash deletes it
-- Move a route or folder by dragging it onto a folder, or onto the empty area below the list for the top level; the arrow button on hover does the same from a menu
-- Deleting a folder keeps its routes and subfolders: they move up one level
-- The filter searches inside folders and opens the ones with matches
+### Working with Routes & Folders
+
+Every route and folder has a **⋯** button (it appears on hover; on touch screens it is always visible). Its menu:
+
+| Item                     | Route | Folder | What it does                                                                                       |
+| ------------------------ | :---: | :----: | -------------------------------------------------------------------------------------------------- |
+| **Add to folder…**       |       |   ✓    | New HTTP / CRUD / WebSocket route or subfolder inside it, or **Import from file…** into it           |
+| **Rename**               |       |   ✓    | Edit the name in place (Enter saves, Esc cancels); double-clicking the name does the same          |
+| **Duplicate**            |   ✓   |   ✓    | Copy right below the original: a route gets its own path (`/users` → `/users-copy-1`), a folder becomes `Users (copy 1)` |
+| **Move to folder…**      |   ✓   |   ✓    | Pick a folder of the same environment, or the top level                                            |
+| **Copy to environment…** |   ✓   |   ✓    | See below                                                                                          |
+| **Move to environment…** |   ✓   |   ✓    | See below                                                                                          |
+| **Export to file**       |   ✓   |   ✓    | See below                                                                                          |
+| **Delete**               |   ✓   |   ✓    | A route goes to the **Recycle bin**; deleting a folder keeps its contents, which move up one level   |
+
+More ways to organise:
+
+- **+ ▾ → Folder** in the route list adds a folder at the top level and opens its name for editing
+- **Drag and drop** a route or folder onto a folder, or onto the empty area below the list to bring it to the top level
+- The **filter** searches inside folders and opens the ones with matches
 
 Folders only group routes in the UI; they are saved in the environment file the same way Mockoon desktop saves them.
+
+#### Copy or move to another environment
+
+**⋯ → Copy to environment…** or **Move to environment…** opens a dialog that shows the item and a **From → To** summary (environment, port and folder), updated as you choose:
+
+1. Switch between **Copy** and **Move** if needed: *Copy* leaves the original in place, *Move* removes it
+2. Pick the target **Environment** and **Folder** (or *Top level*)
+3. Click **Copy** / **Move**
+
+- A folder travels with everything inside it, subfolders included
+- **Data buckets and callbacks** the routes use come along when the target does not have them yet, so `{{data 'users'}}` keeps working
+- Everything gets new IDs, so the same item can be copied twice
+- If the target already has a route with the same method and path, or a different bucket with the same ID, the dialog lists it after copying so you can check
+- Restart running mock servers to apply the change
+
+#### Export and import routes
+
+**⋯ → Export to file** downloads a route or folder (with the data buckets and callbacks it uses) as one file, named after where it came from:
+
+| Exported item          | File name                                 |
+| ---------------------- | ----------------------------------------- |
+| `GET /users` route      | `demo-shop-api-get-users.json`            |
+| CRUD `/customers` route | `demo-shop-api-crud-customers.json`      |
+| WebSocket `/live` route | `demo-shop-api-ws-live.json`              |
+| `Accounts` folder       | `demo-shop-api-folder-accounts.json`      |
+
+To import such a file:
+
+- **In the route list:** **+ ▾ → Import from file…** (top level), or a folder's **⋯ → Add to folder… → Import from file…** (into that folder)
+- **From the sidebar:** the **JSON** button recognises a routes export and asks **where the routes should go**:
+  - **Add to an existing environment** - pick the environment (the open one is preselected) and the folder
+  - **Create a new environment** - give it a name; it gets the next free port
+
+A whole Mockoon environment file can also be imported into an existing environment from the route list; all its routes and folders are added. Files up to 10 MB are accepted, and each import gets new IDs, so the same file can be imported several times.
 
 ### Mock Server Ports
 
@@ -254,13 +335,13 @@ A port that is allowed in the firewall but has no mock server running simply ref
 
 ### Importing Environments
 
-- **JSON** (sidebar) - upload an existing Mockoon environment file (`.json`)
+- **JSON** (sidebar) - upload an existing Mockoon environment file (`.json`). A routes export (see [Export and import routes](#export-and-import-routes)) opens a dialog that asks which environment the routes go to, or whether to create a new one
 - **OpenAPI** (sidebar) - upload an OpenAPI/Swagger specification (`.json`, `.yaml`, `.yml`); routes are generated automatically
 
 ### Exporting an Environment
 
-1. Hover an environment in the sidebar
-2. Click the download icon (next to the trash icon)
+1. Open the environment's **⋯** menu in the sidebar
+2. Click **Export environment**
 3. The browser saves `<name>.json`
 
 The download is the environment file exactly as stored in `data/`, including every edit made in the UI, in the Mockoon environment format. It can be imported again here (**JSON** button) or opened in Mockoon desktop/CLI.
@@ -292,23 +373,56 @@ The status refreshes every 10 seconds and immediately after **Start** / **Stop**
 
 Every delete asks for confirmation in a dialog (**Cancel** or clicking outside closes it without deleting):
 
-| What        | Where                                                             | The dialog shows                                                        |
-| ----------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Environment | Trash icon on hover in the sidebar, or **Settings → Danger Zone** | Its port and where the file goes                                        |
-| Route       | Trash icon on hover in the route list                             | Method, path and number of responses, e.g. `GET /users` and 2 responses |
-| Folder      | Trash icon on hover on the folder                                 | Folder name; its routes and subfolders move up one level instead of being deleted |
-| Response    | Trash icon next to the response tabs                              | The response label                                                      |
-| Data bucket | × on hover in the data bucket list                                | The bucket name and the `{{data 'id'}}` reference that will break       |
+| What        | Where                                                   | The dialog shows                                                       | Can be restored |
+| ----------- | ------------------------------------------------------- | ---------------------------------------------------------------------- | :-------------: |
+| Environment | **⋯ → Delete environment…** in the sidebar, or **Settings → Danger Zone** | Its port and that it goes to the recycle bin | ✓ |
+| Route       | **⋯ → Delete route** in the route list                  | Method, path and number of responses, e.g. `GET /users` and 2 responses | ✓ |
+| Folder      | **⋯ → Delete folder**                                   | Folder name; its routes and subfolders move up one level instead of being deleted | (nothing is deleted) |
+| Response    | Trash icon next to the response tabs                    | The response label                                                     |                 |
+| Data bucket | × on hover in the data bucket list                      | The bucket name and the `{{data 'id'}}` reference that will break      |                 |
 
-Deleting an environment stops its mock server and removes it from PM2; the file is moved to `data/.deleted/` and can be restored by moving it back into `data/`. Routes, responses and data buckets are removed from the file and cannot be restored.
+Deleting an environment stops its mock server and removes it from PM2; the file is moved to the **Recycle bin** (`data/.deleted/`). A deleted route is saved there too, with the data buckets and callbacks it uses. Deleting a response or data bucket removes it from the file and cannot be undone.
+
+### Recycle Bin
+
+**Recycle bin** at the bottom of the sidebar (with the number of items) lists everything deleted, newest first. Each item shows what it is (*Environment*, *Route*, *Folder*), when it was deleted and, for routes, where it came from, e.g. *from Demo Shop API › Accounts*.
+
+**Restoring an environment** puts it back in the sidebar and selects it. Its mock server stays stopped until you start it.
+
+- The old port is kept when it is still inside the allowed range, not assigned to another environment, not the UI port and nothing else listens on it; otherwise the first port that meets all of these is used, and the notification says which port changed
+- If the range has no free port left, restoring is refused and the item stays in the bin (widen the range in **Account**)
+- If an environment with the same file name exists, it is restored as `<name>-restored.json`; if one with the same uuid exists (e.g. imported again), it gets a new uuid
+
+**Restoring a route** puts it back into its environment and folder, and opens it.
+
+- If its folder was deleted meanwhile, it goes to the top level (the notification says so)
+- If its **environment** was deleted, the item is marked *(deleted)* and **Restore** asks where it should go instead: pick another environment and folder, then **Restore to …**. Restoring the environment first works too
+- Its data buckets and callbacks come back with it when the environment no longer has them
+
+**Removing for good:** the trash icon on an item (**Delete permanently**) or **Empty recycle bin**, both after a confirmation. Files in `data/.deleted/` that cannot be read are shown as *Unreadable* and can only be deleted.
 
 ### Sidebar
 
 - Click the sidebar icon at the top of the sidebar to collapse it to environment initials (hover for the full name and status) or expand it again
 - **Resize** by dragging its right edge: right to widen, left to narrow, between **200 px** and **480 px** (default 256 px). Double-click the edge to reset
 - With the keyboard: **Tab** to the edge, then **←** / **→** (hold **Shift** for bigger steps), **Home** for the minimum, **End** for the maximum
-- Hover an environment for its **export** and **delete** buttons
+- Each environment has a **⋯** menu: **Duplicate environment**, **Export environment**, **Delete environment…**
+- **Recycle bin** at the bottom opens the [recycle bin](#recycle-bin); it shows how many items are waiting
 - The width and the collapsed/expanded state are remembered per browser
+
+### On Phones and Small Screens
+
+Below 768 px wide the dashboard switches to a single-pane layout:
+
+- The sidebar becomes a narrow rail of environment icons; the sidebar button opens the full list over the page, and picking an environment closes it again
+- The route list takes the full width; opening a route shows the editor full screen with **← Routes** to go back
+- The header keeps the essentials: the status becomes a coloured dot and **Restart** an icon
+- **⋯** buttons are always visible (touch screens cannot hover), and menus and dialogs always fit the screen
+- Tabs and wide toolbars wrap or scroll sideways instead of being cut off
+
+### Notifications
+
+Notifications appear at the bottom left (full width on phones). They close by themselves after a few seconds (longer for long messages and errors), or right away with **×**.
 
 ### Theme
 
@@ -341,10 +455,12 @@ mockoon-cli-ui/
 │   ├── account.ts         # Change login, run setup again
 │   ├── lib/
 │   │   ├── settings.ts    # config/settings.json, password hashing, .env overrides
-│   │   └── port-range.ts  # Allowed range and port conflict checks
+│   │   ├── port-range.ts  # Allowed range, port conflict checks, free port search
+│   │   ├── route-bundle.ts # Copy/move/duplicate/export/import of routes and folders
+│   │   └── route-trash.ts # Deleted routes in the recycle bin
 │   └── api/               # API handlers
 │       ├── action.ts      # PM2 process control
-│       ├── environments/  # CRUD operations, import/export, ports
+│       ├── environments/  # CRUD, import/export, ports, duplicate, transfer, recycle bin
 │       └── logs*.ts       # Logs and log streaming (SSE)
 ├── components/            # React components
 │   ├── Dashboard.tsx      # Main application component
@@ -354,7 +470,10 @@ mockoon-cli-ui/
 │   ├── LogPanel.tsx       # Real-time log viewer
 │   ├── SetupPage.tsx      # First-run setup page
 │   ├── AccountButton.tsx  # Account dialog
-│   ├── shared/            # PortSelect, PasswordInput, ConfirmDialog, ...
+│   ├── RecycleBinDialog.tsx   # Recycle bin
+│   ├── TransferDialog.tsx     # Copy/move to another environment
+│   ├── ImportRoutesDialog.tsx # Where imported routes go
+│   ├── shared/            # ActionMenu, PortSelect, PasswordInput, ConfirmDialog, ...
 │   └── ...
 ├── config/                # settings.json from the setup (not committed)
 ├── data/                  # Environment JSON files (only demo-* are committed)
@@ -412,6 +531,9 @@ All endpoints except `/api/auth/*` and `/api/setup` require a valid session cook
 | `GET`  | `/api/environments/ports`          | Allowed port range, next free port and taken ports (`{ min, max, suggested, uiPort, used }`)                        |
 | `POST` | `/api/environments/update`         | Update environment settings (`{ filename, updatedEnv }`)                                                            |
 | `POST` | `/api/environments/delete`         | Delete environment (`{ filename }`): stops its mock server, removes it from PM2, moves the file to `data/.deleted/` |
+| `POST` | `/api/environments/duplicate`      | Duplicate an environment (`{ filename }`) as `<name> (copy N)` on the next free port                                 |
+| `GET`  | `/api/environments/trash`          | Recycle bin items, newest first (`{ items: [{ id, kind, name, deletedFrom?, sourceMissing?, port, deletedAt, routeCount, invalid }] }`) |
+| `POST` | `/api/environments/trash`          | `{ action: 'restore', id, targetFilename?, targetFolderUuid? }`, `{ action: 'delete', id }`, `{ action: 'empty' }`. An environment returns `environment`, `previousPort`, `portChanged`; a route or folder returns the saved `target`. `409` when a route's environment is gone and no target was given |
 
 ### Route, Response & Resource Endpoints
 
@@ -419,12 +541,21 @@ Each endpoint takes `{ filename, action, ... }` in the JSON body.
 
 | Method | Endpoint                         | Actions                                                         |
 | ------ | -------------------------------- | --------------------------------------------------------------- |
-| `POST` | `/api/environments/routes`       | `create`, `delete`, `duplicate`                                 |
+| `POST` | `/api/environments/routes`       | `create`, `delete` (to the recycle bin), `duplicate`            |
 | `POST` | `/api/environments/update-route` | Update route metadata (`{ filename, routeUuid, updatedRoute }`) |
 | `POST` | `/api/environments/responses`    | `create`, `update`, `delete`, `duplicate`                       |
 | `POST` | `/api/environments/databuckets`  | `create`, `update`, `delete`                                    |
 | `POST` | `/api/environments/callbacks`    | `create`, `update`, `delete`                                    |
 | `POST` | `/api/environments/folders`      | `create`, `update` (rename), `delete` (contents move up), `move` (`{ itemType, itemUuid, targetFolderUuid }`) |
+
+Routes and folders across environments (`itemType` is `route` or `folder`):
+
+| Method | Endpoint                               | Description                                                                                                         |
+| ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/api/environments/items/duplicate`    | Duplicate in place (`{ filename, itemType, itemUuid }`)                                                             |
+| `POST` | `/api/environments/transfer`           | Copy or move (`{ sourceFilename, targetFilename, itemType, itemUuid, mode: 'copy' \| 'move', targetFolderUuid? }`); returns both environments and `warnings` |
+| `GET`  | `/api/environments/items/export`       | Download as `<environment>-<item>.json` (`?filename=&itemType=&itemUuid=`)                                          |
+| `POST` | `/api/environments/items/import`       | Multipart `file` plus `filename` (+ `targetFolderUuid`) for an existing environment, or `newEnvironmentName` for a new one; max 10 MB |
 
 ### Action Endpoints
 

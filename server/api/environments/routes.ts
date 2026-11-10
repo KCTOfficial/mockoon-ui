@@ -2,6 +2,7 @@ import fs from 'fs';
 import { Environment, Route, Response as RouteResponse } from '@/types/mockoon';
 import { v4 as uuidv4 } from 'uuid';
 import { resolveEnvFile } from '../../lib/data-dir';
+import { trashItem } from '../../lib/route-trash';
 
 export async function POST(req: Request) {
     try {
@@ -123,6 +124,12 @@ export async function POST(req: Request) {
 
         if (action === 'delete') {
             if (!routeUuid) return Response.json({ error: 'Missing routeUuid' }, { status: 400 });
+            if (!environment.routes.some(r => r.uuid === routeUuid)) {
+                return Response.json({ error: 'Route not found' }, { status: 404 });
+            }
+
+            // Recycle bin first: if saving the environment then fails, the route exists twice instead of nowhere
+            trashItem(environment, { type: 'route', uuid: routeUuid }, filename);
 
             environment.routes = environment.routes.filter(r => r.uuid !== routeUuid);
             // Drop its place in the tree too, so no folder keeps pointing at a missing route

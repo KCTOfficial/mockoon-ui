@@ -11,6 +11,8 @@ jest.mock('fs', () => {
         existsSync: jest.fn(),
         readFileSync: jest.fn(),
         writeFileSync: jest.fn(),
+        // Deleting writes to the recycle bin; never create data/.deleted in the project
+        mkdirSync: jest.fn(),
     };
 });
 
@@ -264,8 +266,15 @@ describe('/api/environments/routes', () => {
             expect(response.status).toBe(200);
             expect(data.success).toBe(true);
 
-            const writeCall = fs.writeFileSync.mock.calls[0];
-            const savedEnv = JSON.parse(writeCall[1]);
+            // First the recycle bin copy, then the environment without the route
+            const [trashCall, envCall] = fs.writeFileSync.mock.calls;
+            expect(trashCall[0]).toMatch(/[\\/]data[\\/]\.deleted[\\/]route-test-.+\.json$/);
+            const bundle = JSON.parse(trashCall[1]);
+            expect(bundle).toMatchObject({ type: 'mockoon-ui/routes', deletedFrom: { filename: 'test.json', envName: 'Test Environment', folderUuid: null } });
+            expect(bundle.routes.map((r: { uuid: string }) => r.uuid)).toEqual(['route-1']);
+
+            expect(envCall[0]).toMatch(/[\\/]data[\\/]test\.json$/);
+            const savedEnv = JSON.parse(envCall[1]);
             expect(savedEnv.routes).toHaveLength(0);
             expect(savedEnv.rootChildren).toHaveLength(0);
         });

@@ -1,18 +1,25 @@
 import { Environment, Folder, FolderChild, Route } from '@/types/mockoon';
 import { useMemo, useRef, useState } from 'react';
 import {
+    ArrowSwitchIcon,
     ChevronDownIcon,
     ChevronRightIcon,
+    CopyIcon,
+    DownloadIcon,
+    DuplicateIcon,
     FileDirectoryIcon,
     FileDirectoryOpenFillIcon,
-    MoveToEndIcon,
     PencilIcon,
     PlusIcon,
     SearchIcon,
     TrashIcon,
     TriangleDownIcon,
+    UploadIcon,
 } from '@primer/octicons-react';
 import ConfirmDialog from './shared/ConfirmDialog';
+import ActionMenu, { ActionMenuItem, MenuAnchor, menuAnchor } from './shared/ActionMenu';
+import WarningsDialog from './shared/WarningsDialog';
+import TransferDialog, { TransferMode, TransferResult } from './TransferDialog';
 
 export interface Hierarchy {
     folders: Folder[];
@@ -29,15 +36,21 @@ interface RouteListProps {
     /** Folders or the tree changed on the server; replaces the environment's copy */
     onHierarchyChange?: (hierarchy: Hierarchy) => void;
     notify?: (message: string, type: 'success' | 'error') => void;
+    /** Every environment, for copying or moving routes and folders to another one */
+    environments?: Environment[];
+    onTransferred?: (result: TransferResult) => void;
+    /** The server saved this environment (import, duplicate): replaces the UI's copy */
+    onEnvironmentSaved?: (saved: Environment) => void;
+    /** Extra classes for the panel; defaults to `flex` (the Dashboard hides it on phones while a route is open) */
+    className?: string;
 }
 
 type Item = { type: 'route' | 'folder'; uuid: string };
 
-/** A dropdown pinned to the button that opened it, so the scrolling list never clips it. */
-type Anchor = { top?: number; bottom?: number; right: number };
+/** A picker pinned to the button that opened it, so the scrolling list never clips it. */
 type Menu =
-    | ({ kind: 'add'; parentFolderUuid: string | null } & Anchor)
-    | ({ kind: 'move'; item: Item } & Anchor);
+    | ({ kind: 'add'; parentFolderUuid: string | null } & MenuAnchor)
+    | ({ kind: 'move'; item: Item } & MenuAnchor);
 
 const methodColors: Record<string, string> = {
     get: 'text-get border-get/40',
@@ -51,14 +64,15 @@ const ROUTE_TYPE_NAMES: Record<string, string> = { http: 'HTTP route', crud: 'CR
 
 const DRAG_TYPE = 'application/x-mockoon-item';
 
-const menuAt = (button: HTMLElement): Anchor => {
-    const rect = button.getBoundingClientRect();
-    const right = window.innerWidth - rect.right;
-    // In the lower part of the window, open upwards so the menu stays on screen
-    return rect.bottom > window.innerHeight * 0.6
-        ? { bottom: window.innerHeight - rect.top + 4, right }
-        : { top: rect.bottom + 4, right };
-};
+// Row "..." buttons show on hover or focus, and always on touch screens, which cannot hover
+const ROW_ACTION = 'opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100';
+
+const routeLabel = (route: Route) => `${(route.method || route.type).toUpperCase()} /${route.endpoint.replace(/^\//, '')}`;
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** Name from `Content-Disposition: attachment; filename="..."`, else the fallback. */
+const downloadName = (header: string | null, fallback: string) => /filename="([^"]+)"/.exec(header ?? '')?.[1] ?? fallback;
 
 export default function RouteList({
     activeEnv,
@@ -69,12 +83,21 @@ export default function RouteList({
     onRouteDeleted,
     onHierarchyChange,
     notify,
+    environments = [],
+    onTransferred,
+    onEnvironmentSaved,
+    className = 'flex',
 }: RouteListProps) {
     const [filter, setFilter] = useState('');
     const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
     const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [menu, setMenu] = useState<Menu | null>(null);
+    const [transfer, setTransfer] = useState<{ item: Item; mode: TransferMode } | null>(null);
+    const [warnings, setWarnings] = useState<{ title: string; summary: string; warnings: string[] } | null>(null);
+    const importInputRef = useRef<HTMLInputElement>(null);
+    // Folder the next picked import file goes into (null: top level)
+    const importFolderRef = useRef<string | null>(null);
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     const [renaming, setRenaming] = useState<{ uuid: string; name: string } | null>(null);
     // Set by Escape, so the blur that follows does not save the edit
@@ -257,10 +280,90 @@ export default function RouteList({
             await post('/api/environments/routes', { action: 'delete', routeUuid });
             setRouteToDelete(null);
             onRouteDeleted?.(routeUuid);
-            notify?.('Route deleted', 'success');
+            notify?.('Route moved to the recycle bin', 'success');
         } catch {
             notify?.('Error deleting route', 'error');
         }
+    };
+
+    const handleExport = async (item: Item) => {
+        if (!envFilename) return;
+        try {
+            const params = new URLSearchParams({ filename: envFilename, itemType: item.type, itemUuid: item.uuid });
+            const res = await fetch(`/api/environments/items/export?${params}`);
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Export failed');
+            }
+            const url = URL.createObjectURL(await res.blob());
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = downloadName(res.headers.get('content-disposition'), 'routes.json');
+            link.click();
+            // Revoke after the download has started
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            notify?.(error instanceof Error ? error.message : 'Export failed', 'error');
+        }
+    };
+
+    const startImport = (parentFolderUuid: string | null) => {
+        setMenu(null);
+        importFolderRef.current = parentFolderUuid;
+        importInputRef.current?.click();
+    };
+
+    const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        // Reset so the same file can be picked again
+        e.target.value = '';
+        if (!file || !envFilename) return;
+        const parentFolderUuid = importFolderRef.current;
+        setIsCreating(true);
+        try {
+            const form = new FormData();
+            form.append('file', file);
+            form.append('filename', envFilename);
+            if (parentFolderUuid) form.append('targetFolderUuid', parentFolderUuid);
+            const res = await fetch('/api/environments/items/import', { method: 'POST', body: form });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Import failed');
+
+            onEnvironmentSaved?.(data.target);
+            if (parentFolderUuid) expand(parentFolderUuid);
+            const summary = `Imported ${plural(data.routeCount, 'route')}${data.folderCount ? ` in ${plural(data.folderCount, 'folder')}` : ''} from ${file.name}.`;
+            if (data.warnings.length > 0) setWarnings({ title: 'Import finished', summary, warnings: data.warnings });
+            else notify?.(summary, 'success');
+        } catch (error) {
+            notify?.(error instanceof Error ? error.message : 'Import failed', 'error');
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    const handleDuplicate = async (item: Item) => {
+        if (!envFilename) return;
+        try {
+            const data = await post('/api/environments/items/duplicate', { itemType: item.type, itemUuid: item.uuid });
+            onEnvironmentSaved?.(data.target);
+            const saved = data.target as Environment;
+            if (item.type === 'route') {
+                const copy = saved.routes.find(r => r.uuid === data.itemUuid);
+                onSelectRoute(data.itemUuid);
+                notify?.(`Duplicated as ${copy ? routeLabel(copy) : 'a new route'}`, 'success');
+            } else {
+                notify?.(`Duplicated as "${saved.folders.find(f => f.uuid === data.itemUuid)?.name ?? 'new folder'}"`, 'success');
+            }
+        } catch (error) {
+            notify?.(error instanceof Error ? error.message : 'Failed to duplicate', 'error');
+        }
+    };
+
+    const handleTransferred = (result: TransferResult) => {
+        onTransferred?.(result);
+        const summary = `${result.mode === 'copy' ? 'Copied' : 'Moved'} ${plural(result.routeCount, 'route')}${result.folderCount ? ` and ${plural(result.folderCount, 'folder')}` : ''} to ${result.target.name}.`;
+        if (result.warnings.length > 0) setWarnings({ title: `${result.mode === 'copy' ? 'Copy' : 'Move'} finished`, summary, warnings: result.warnings });
+        else notify?.(summary, 'success');
     };
 
     const expand = (uuid: string) => setCollapsed(prev => {
@@ -321,6 +424,28 @@ export default function RouteList({
 
     const indent = (depth: number) => ({ paddingLeft: 12 + depth * 16 });
 
+    const otherEnvironments = environments.filter(env => env.filename && env.filename !== envFilename);
+
+    /** Move within this environment, copy/move to another one, export; only the ones that have somewhere to go. */
+    const placementActions = (item: Item): ActionMenuItem[] => [
+        { key: 'duplicate', label: 'Duplicate', icon: <DuplicateIcon />, onSelect: () => handleDuplicate(item) },
+        ...(moveTargets(item).length > 0 || parentOf(item.uuid) !== null
+            ? [{
+                key: 'move-folder',
+                label: 'Move to folder…',
+                icon: <FileDirectoryIcon />,
+                onSelect: (anchor: HTMLElement) => setMenu({ kind: 'move', item, ...menuAnchor(anchor) }),
+            }]
+            : []),
+        ...(otherEnvironments.length > 0
+            ? [
+                { key: 'copy-env', label: 'Copy to environment…', icon: <CopyIcon />, onSelect: () => setTransfer({ item, mode: 'copy' }) },
+                { key: 'move-env', label: 'Move to environment…', icon: <ArrowSwitchIcon />, onSelect: () => setTransfer({ item, mode: 'move' }) },
+            ]
+            : []),
+        { key: 'export', label: 'Export to file', icon: <DownloadIcon />, onSelect: () => handleExport(item) },
+    ];
+
     const renderRoute = (route: Route, depth: number) => {
         const isActive = activeRouteId === route.uuid;
         return (
@@ -348,33 +473,21 @@ export default function RouteList({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1">
-                    {folders.length > 0 && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setMenu({ kind: 'move', item: { type: 'route', uuid: route.uuid }, ...menuAt(e.currentTarget) });
-                            }}
-                            className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            title="Move to folder"
-                            aria-label="Move to folder"
-                            aria-haspopup="menu"
-                        >
-                            <MoveToEndIcon size={14} />
-                        </button>
-                    )}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setRouteToDelete(route);
-                        }}
-                        className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:!text-danger"
-                        title="Delete route"
-                        aria-label="Delete route"
-                    >
-                        <TrashIcon size={14} />
-                    </button>
-                </div>
+                <ActionMenu
+                    label={`Actions for ${routeLabel(route)}`}
+                    className={ROW_ACTION}
+                    items={[
+                        ...placementActions({ type: 'route', uuid: route.uuid }),
+                        {
+                            key: 'delete',
+                            label: 'Delete route',
+                            icon: <TrashIcon />,
+                            variant: 'danger',
+                            dividerBefore: true,
+                            onSelect: () => setRouteToDelete(route),
+                        },
+                    ]}
+                />
             </div>
         );
     };
@@ -444,55 +557,29 @@ export default function RouteList({
 
                     {!isRenaming && (
                         <>
-                            <span className="Counter group-hover:hidden group-focus-within:hidden">{countRoutes(folder)}</span>
-                            <div className="hidden group-hover:flex group-focus-within:flex items-center gap-0.5">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setMenu({ kind: 'add', parentFolderUuid: folder.uuid, ...menuAt(e.currentTarget) });
-                                    }}
-                                    className="btn btn-invisible btn-icon btn-sm !w-6 !h-6"
-                                    title="Add to folder"
-                                    aria-label={`Add to ${folder.name}`}
-                                    aria-haspopup="menu"
-                                >
-                                    <PlusIcon size={14} />
-                                </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        startRename(folder);
-                                    }}
-                                    className="btn btn-invisible btn-icon btn-sm !w-6 !h-6"
-                                    title="Rename folder"
-                                    aria-label={`Rename ${folder.name}`}
-                                >
-                                    <PencilIcon size={14} />
-                                </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setMenu({ kind: 'move', item: { type: 'folder', uuid: folder.uuid }, ...menuAt(e.currentTarget) });
-                                    }}
-                                    className="btn btn-invisible btn-icon btn-sm !w-6 !h-6"
-                                    title="Move folder"
-                                    aria-label={`Move ${folder.name}`}
-                                    aria-haspopup="menu"
-                                >
-                                    <MoveToEndIcon size={14} />
-                                </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFolderToDelete(folder);
-                                    }}
-                                    className="btn btn-invisible btn-icon btn-sm !w-6 !h-6 hover:!text-danger"
-                                    title="Delete folder"
-                                    aria-label={`Delete ${folder.name}`}
-                                >
-                                    <TrashIcon size={14} />
-                                </button>
-                            </div>
+                            <span className="Counter">{countRoutes(folder)}</span>
+                            <ActionMenu
+                                label={`Actions for folder ${folder.name}`}
+                                className={ROW_ACTION}
+                                items={[
+                                    {
+                                        key: 'add',
+                                        label: 'Add to folder…',
+                                        icon: <PlusIcon />,
+                                        onSelect: (anchor) => setMenu({ kind: 'add', parentFolderUuid: folder.uuid, ...menuAnchor(anchor) }),
+                                    },
+                                    { key: 'rename', label: 'Rename', icon: <PencilIcon />, onSelect: () => startRename(folder) },
+                                    ...placementActions({ type: 'folder', uuid: folder.uuid }),
+                                    {
+                                        key: 'delete',
+                                        label: 'Delete folder',
+                                        icon: <TrashIcon />,
+                                        variant: 'danger',
+                                        dividerBefore: true,
+                                        onSelect: () => setFolderToDelete(folder),
+                                    },
+                                ]}
+                            />
                         </>
                     )}
                 </div>
@@ -518,7 +605,7 @@ export default function RouteList({
     const isEmpty = tree.every(node => node === null);
 
     return (
-        <div className="w-80 flex-shrink-0 bg-canvas border-r border-border-custom flex flex-col overflow-hidden">
+        <div className={`w-full md:w-80 flex-shrink-0 bg-canvas md:border-r border-border-custom flex-col overflow-hidden ${className}`}>
             {/* Filter Header */}
             <div className="p-3 border-b border-border-custom bg-canvas-muted space-y-3">
                 <div className="flex items-center justify-between">
@@ -528,7 +615,7 @@ export default function RouteList({
                     </div>
                     <button
                         onClick={(e) => {
-                            const anchor = menuAt(e.currentTarget);
+                            const anchor = menuAnchor(e.currentTarget);
                             setMenu(menu?.kind === 'add' && menu.parentFolderUuid === null ? null : { kind: 'add', parentFolderUuid: null, ...anchor });
                         }}
                         disabled={isCreating || !activeEnv}
@@ -601,6 +688,10 @@ export default function RouteList({
                                 <button role="menuitem" onClick={() => handleCreateFolder(menu.parentFolderUuid)} className="ActionList-item">
                                     <FileDirectoryIcon /> Folder
                                 </button>
+                                <div className="border-t border-border-muted my-2 -mx-2" />
+                                <button role="menuitem" onClick={() => startImport(menu.parentFolderUuid)} className="ActionList-item">
+                                    <UploadIcon /> Import from file…
+                                </button>
                             </>
                         ) : (
                             <>
@@ -643,8 +734,44 @@ export default function RouteList({
                     <code className="font-mono text-fg-default">
                         {(routeToDelete.method || routeToDelete.type).toUpperCase()} /{routeToDelete.endpoint.replace(/^\//, '')}
                     </code>{' '}
-                    and its {routeToDelete.responses.length} response(s)? This cannot be undone.
+                    and its {plural(routeToDelete.responses.length, 'response')}? It goes to the{' '}
+                    <strong className="text-fg-default">Recycle bin</strong>, where it can be restored.
                 </ConfirmDialog>
+            )}
+
+            <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportFile}
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+            />
+
+            {transfer && activeEnv && (
+                <TransferDialog
+                    item={transfer.item}
+                    itemLabel={transfer.item.type === 'route'
+                        ? (routesById.get(transfer.item.uuid) ? routeLabel(routesById.get(transfer.item.uuid)!) : '')
+                        : foldersById.get(transfer.item.uuid)?.name ?? ''}
+                    itemDetail={transfer.item.type === 'folder' && foldersById.get(transfer.item.uuid)
+                        ? plural(countRoutes(foldersById.get(transfer.item.uuid)!), 'route')
+                        : undefined}
+                    sourceFolder={(() => {
+                        const parent = parentOf(transfer.item.uuid);
+                        return parent ? foldersById.get(parent)?.name : undefined;
+                    })()}
+                    initialMode={transfer.mode}
+                    source={activeEnv}
+                    environments={environments}
+                    onClose={() => setTransfer(null)}
+                    onDone={handleTransferred}
+                />
+            )}
+
+            {warnings && (
+                <WarningsDialog {...warnings} onClose={() => setWarnings(null)} />
             )}
 
             {folderToDelete && (

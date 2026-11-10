@@ -27,6 +27,10 @@ import * as importOpenApi from './api/environments/import-openapi';
 import * as ports from './api/environments/ports';
 import * as responses from './api/environments/responses';
 import * as routes from './api/environments/routes';
+import * as duplicate from './api/environments/duplicate';
+import * as itemsIo from './api/environments/items-io';
+import * as transfer from './api/environments/transfer';
+import * as trash from './api/environments/trash';
 import * as update from './api/environments/update';
 import * as updateRoute from './api/environments/update-route';
 
@@ -73,6 +77,13 @@ app.post('/api/environments/import-openapi', (c) => importOpenApi.POST(c.req.raw
 app.get('/api/environments/ports', () => ports.GET());
 app.post('/api/environments/responses', (c) => responses.POST(c.req.raw));
 app.post('/api/environments/routes', (c) => routes.POST(c.req.raw));
+app.post('/api/environments/transfer', (c) => transfer.POST(c.req.raw));
+app.post('/api/environments/duplicate', (c) => duplicate.POST(c.req.raw));
+app.post('/api/environments/items/duplicate', (c) => duplicate.POST_ITEM(c.req.raw));
+app.get('/api/environments/items/export', (c) => itemsIo.GET(c.req.raw));
+app.post('/api/environments/items/import', (c) => itemsIo.POST(c.req.raw));
+app.get('/api/environments/trash', () => trash.GET());
+app.post('/api/environments/trash', (c) => trash.POST(c.req.raw));
 app.post('/api/environments/update', (c) => update.POST(c.req.raw));
 app.post('/api/environments/update-route', (c) => updateRoute.POST(c.req.raw));
 app.all('/api/*', (c) => c.json({ error: 'Not found' }, 404));
