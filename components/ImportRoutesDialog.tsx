@@ -166,7 +166,7 @@ export default function ImportRoutesDialog({ file, summary, environments, active
                         </fieldset>
 
                         {mode === 'existing' ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-3">
                                 <div className="min-w-0">
                                     <label htmlFor="import-env" className="form-label">Environment</label>
                                     <select

@@ -84,7 +84,7 @@ function RestoreTargetPicker({ item, environments, busy, onCancel, onRestore }: 
             {targets.length === 0 ? (
                 <p className="text-xs text-fg-muted">There is no environment yet. Create or restore one first.</p>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-2">
                     <div className="min-w-0">
                         <label htmlFor={`restore-env-${item.id}`} className="form-label">Environment</label>
                         <select

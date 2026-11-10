@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownIcon, ArrowRightIcon, FileDirectoryIcon, XIcon } from '@primer/octicons-react';
+import { ArrowDownIcon, CopyIcon, FileDirectoryIcon, XIcon } from '@primer/octicons-react';
 import { Environment, Folder } from '@/types/mockoon';
 import EnvAvatar from './shared/EnvAvatar';
 
@@ -50,32 +50,15 @@ export function folderOptions(env: Environment | undefined): { folder: Folder; d
     return result;
 }
 
-/** One side of the "from -> to" summary: environment, port and folder. */
-function EnvCard({ caption, env, folder, highlight }: { caption: string; env?: Environment; folder?: string; highlight?: boolean }) {
-    return (
-        <div className={`min-w-0 rounded-md border p-2.5 ${highlight ? 'border-accent-emphasis bg-accent-subtle' : 'border-border-custom bg-canvas-muted'}`}>
-            <div className={`text-[11px] font-semibold uppercase tracking-wide ${highlight ? 'text-accent' : 'text-fg-muted'}`}>{caption}</div>
-            {env ? (
-                <>
-                    <div className="mt-1.5 flex items-center gap-2 min-w-0">
-                        <EnvAvatar name={env.name} />
-                        <span className="text-sm font-semibold text-fg-default truncate" title={env.name}>{env.name}</span>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-1.5 min-w-0 text-xs text-fg-muted">
-                        <span className="font-mono flex-shrink-0">:{env.port}</span>
-                        <span aria-hidden="true">·</span>
-                        <FileDirectoryIcon size={12} className="flex-shrink-0" />
-                        <span className="truncate" title={folder ?? 'Top level'}>{folder ?? 'Top level'}</span>
-                    </div>
-                </>
-            ) : (
-                <div className="mt-1.5 text-sm text-fg-muted">No other environment</div>
-            )}
-        </div>
-    );
-}
+const MODE_HELP: Record<TransferMode, (source: string) => string> = {
+    copy: (source) => `A copy is added to the target. "${source}" keeps the original.`,
+    move: (source) => `It is added to the target and removed from "${source}".`,
+};
 
-/** Copies or moves a route or a folder (with everything in it) to another environment. */
+/**
+ * Copies or moves a route or a folder (with everything in it) to another environment.
+ * Reads top to bottom: what to do, what goes (read-only), where it goes (the only inputs), then one button.
+ */
 export default function TransferDialog({
     item, itemLabel, itemDetail, sourceFolder, initialMode, source, environments, onClose, onDone,
 }: TransferDialogProps) {
@@ -88,7 +71,6 @@ export default function TransferDialog({
 
     const target = targets.find(env => env.filename === targetFilename);
     const folders = useMemo(() => folderOptions(target), [target]);
-    const targetFolder = folders.find(f => f.folder.uuid === targetFolderUuid)?.folder.name;
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -150,24 +132,7 @@ export default function TransferDialog({
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {error && <div role="alert" className="flash flash-error text-[13px]">{error}</div>}
 
-                        {/* What goes where: read-only summary that follows the choices below */}
-                        <section aria-label="Summary" className="Box overflow-hidden">
-                            <div className="flex items-center gap-2 min-w-0 px-3 py-2 border-b border-border-muted">
-                                {item.type === 'folder' && <FileDirectoryIcon className="text-fg-muted flex-shrink-0" />}
-                                <span className={`truncate text-sm text-fg-default ${item.type === 'route' ? 'font-mono' : 'font-semibold'}`}>{itemLabel}</span>
-                                {itemDetail && <span className="Counter flex-shrink-0">{itemDetail}</span>}
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 p-3">
-                                <EnvCard caption="From" env={source} folder={sourceFolder} />
-                                <div className="flex sm:flex-col items-center justify-center gap-1 text-fg-muted" aria-hidden="true">
-                                    <ArrowRightIcon className="hidden sm:block" />
-                                    <ArrowDownIcon className="sm:hidden" />
-                                    <span className="text-[11px] font-semibold uppercase tracking-wide">{verb}</span>
-                                </div>
-                                <EnvCard caption="To" env={target} folder={targetFolder} highlight />
-                            </div>
-                        </section>
-
+                        {/* 1. What to do: decides the meaning of everything below */}
                         <div>
                             <span id="transfer-mode-label" className="form-label">Action</span>
                             <div className="SegmentedControl" role="radiogroup" aria-labelledby="transfer-mode-label">
@@ -185,51 +150,82 @@ export default function TransferDialog({
                                     </button>
                                 ))}
                             </div>
-                            <p className="form-caption">
-                                {mode === 'copy' ? `"${source.name}" keeps the original.` : `It is removed from "${source.name}".`}
-                            </p>
+                            <p className="form-caption">{MODE_HELP[mode](source.name)}</p>
                         </div>
 
-                        {targets.length === 0 ? (
-                            <div className="flash flash-warn text-[13px]">Create another environment first.</div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="min-w-0">
-                                    <label htmlFor="transfer-target" className="form-label">Environment</label>
-                                    <select
-                                        id="transfer-target"
-                                        value={targetFilename}
-                                        onChange={(e) => {
-                                            setTargetFilename(e.target.value);
-                                            setTargetFolderUuid('');
-                                        }}
-                                        disabled={isPending}
-                                        className="form-control w-full"
-                                    >
-                                        {targets.map(env => (
-                                            <option key={env.filename} value={env.filename}>{env.name} (:{env.port})</option>
-                                        ))}
-                                    </select>
+                        {/* 2 + 3 grouped tightly: from -> to reads as one flow */}
+                        <div className="space-y-2">
+                            {/* 2. What goes: read-only, so it looks different from the inputs */}
+                            <section aria-label="From" className="rounded-md border border-border-custom bg-canvas-muted p-3">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">From</div>
+                                <div className="mt-1.5 flex items-center gap-2 min-w-0">
+                                    {item.type === 'folder' && <FileDirectoryIcon className="text-fg-muted flex-shrink-0" />}
+                                    <span className={`truncate text-sm text-fg-default ${item.type === 'route' ? 'font-mono' : 'font-semibold'}`} title={itemLabel}>
+                                        {itemLabel}
+                                    </span>
+                                    {itemDetail && <span className="Counter flex-shrink-0">{itemDetail}</span>}
                                 </div>
-                                <div className="min-w-0">
-                                    <label htmlFor="transfer-folder" className="form-label">Folder</label>
-                                    <select
-                                        id="transfer-folder"
-                                        value={targetFolderUuid}
-                                        onChange={(e) => setTargetFolderUuid(e.target.value)}
-                                        disabled={isPending}
-                                        className="form-control w-full"
-                                    >
-                                        <option value="">Top level</option>
-                                        {folders.map(({ folder, depth }) => (
-                                            <option key={folder.uuid} value={folder.uuid}>
-                                                {'  '.repeat(depth + 1)}{folder.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                <div className="mt-1.5 flex items-center gap-1.5 min-w-0 text-xs text-fg-muted">
+                                    <EnvAvatar name={source.name} className="!w-5 !h-5 !text-[9px]" />
+                                    <span className="truncate text-fg-default" title={source.name}>{source.name}</span>
+                                    <span className="font-mono flex-shrink-0">:{source.port}</span>
+                                    <span aria-hidden="true" className="flex-shrink-0">›</span>
+                                    <span className="truncate flex-shrink-0 max-w-[40%]" title={sourceFolder ?? 'Top level'}>{sourceFolder ?? 'Top level'}</span>
                                 </div>
+                            </section>
+
+                            <div className="flex justify-center" aria-hidden="true">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-border-custom bg-canvas px-2.5 py-0.5 text-xs font-semibold text-fg-muted">
+                                    {mode === 'copy' ? <CopyIcon size={12} /> : <ArrowDownIcon size={12} />}
+                                    {verb} to
+                                </span>
                             </div>
-                        )}
+
+                            {/* 3. Where it goes: the only inputs, highlighted as the destination */}
+                            <section aria-label="To" className="rounded-md border border-accent-emphasis bg-accent-subtle p-3">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">To</div>
+                                {targets.length === 0 ? (
+                                    <p className="mt-1.5 text-sm text-fg-muted">There is no other environment. Create one first.</p>
+                                ) : (
+                                    <div className="mt-1.5 space-y-3">
+                                        <div className="min-w-0">
+                                            <label htmlFor="transfer-target" className="form-label">Environment</label>
+                                            <select
+                                                id="transfer-target"
+                                                value={targetFilename}
+                                                onChange={(e) => {
+                                                    setTargetFilename(e.target.value);
+                                                    setTargetFolderUuid('');
+                                                }}
+                                                disabled={isPending}
+                                                className="form-control w-full"
+                                            >
+                                                {targets.map(env => (
+                                                    <option key={env.filename} value={env.filename}>{env.name} (:{env.port})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <label htmlFor="transfer-folder" className="form-label">Folder</label>
+                                            <select
+                                                id="transfer-folder"
+                                                value={targetFolderUuid}
+                                                onChange={(e) => setTargetFolderUuid(e.target.value)}
+                                                disabled={isPending}
+                                                className="form-control w-full"
+                                            >
+                                                <option value="">Top level</option>
+                                                {folders.map(({ folder, depth }) => (
+                                                    <option key={folder.uuid} value={folder.uuid}>
+                                                        {'  '.repeat(depth + 1)}{folder.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+                        </div>
 
                         <p className="text-xs text-fg-muted">
                             Data buckets and callbacks the {item.type === 'folder' ? 'routes use' : 'route uses'} come along when the
@@ -239,8 +235,9 @@ export default function TransferDialog({
 
                     <div className="flex justify-end gap-2 px-4 py-3 border-t border-border-muted">
                         <button type="button" onClick={onClose} disabled={isPending} className="btn btn-sm">Cancel</button>
+                        {/* Short on purpose: the target is right above, and long environment names would stretch it */}
                         <button type="submit" disabled={isPending || !target} className="btn btn-sm btn-primary">
-                            {isPending ? `${mode === 'copy' ? 'Copying' : 'Moving'}…` : verb}
+                            {isPending ? `${mode === 'copy' ? 'Copying' : 'Moving'}…` : `${verb} now`}
                         </button>
                     </div>
                 </form>

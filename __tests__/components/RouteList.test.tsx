@@ -203,7 +203,7 @@ describe('RouteList', () => {
         // Only the other environment is offered, and its folders
         expect(Array.from((screen.getByLabelText('Environment') as HTMLSelectElement).options).map(o => o.text)).toEqual(['Billing (:7003)']);
         await user.selectOptions(screen.getByLabelText('Folder'), 'bf1');
-        await user.click(screen.getByRole('button', { name: 'Copy' }));
+        await user.click(screen.getByRole('button', { name: 'Copy now' }));
 
         await waitFor(() => expect(onTransferred).toHaveBeenCalledWith(result));
         expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toEqual({
@@ -224,7 +224,7 @@ describe('RouteList', () => {
 
         await choose(user, 'Actions for GET /health', 'Move to environment…');
         expect(screen.getByRole('radio', { name: 'Move' })).toHaveAttribute('aria-checked', 'true');
-        await user.click(screen.getByRole('button', { name: 'Move' }));
+        await user.click(screen.getByRole('button', { name: 'Move now' }));
 
         await waitFor(() => expect(onTransferred).toHaveBeenCalled());
         expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toMatchObject({ itemType: 'route', itemUuid: 'r1', mode: 'move', targetFolderUuid: null });
@@ -301,16 +301,32 @@ describe('RouteList', () => {
         expect(screen.getByRole('alertdialog')).toHaveTextContent('It goes to the Recycle bin, where it can be restored.');
     });
 
-    it('shows where the item goes in the copy/move dialog', async () => {
+    it('lays the copy/move dialog out as action, from, to', async () => {
         const user = userEvent.setup();
         render(<RouteList {...props} environments={[makeEnv(), otherEnv]} activeEnv={makeEnv()} />);
         await choose(user, 'Actions for GET /users', 'Move to environment…');
 
-        const summary = screen.getByRole('region', { name: 'Summary' });
-        expect(summary).toHaveTextContent('From');
-        expect(summary).toHaveTextContent('Shop:7002·Users');
-        expect(summary).toHaveTextContent('Billing:7003·Top level');
-        await user.selectOptions(screen.getByLabelText('Folder'), 'bf1');
-        expect(summary).toHaveTextContent('Billing:7003·Invoices');
+        const dialog = screen.getByRole('dialog');
+        const action = screen.getByRole('radiogroup', { name: 'Action' });
+        const from = screen.getByRole('region', { name: 'From' });
+        const to = screen.getByRole('region', { name: 'To' });
+        // Top to bottom: action, then what goes, then where
+        const order = [action, from, to].map(el => Array.from(dialog.querySelectorAll('*')).indexOf(el));
+        expect(order).toEqual([...order].sort((a, b) => a - b));
+
+        // "From" is read-only: the item and where it is now, no inputs
+        expect(from).toHaveTextContent('GET /users');
+        expect(from).toHaveTextContent('Shop:7002›Users');
+        expect(from.querySelector('select, input')).toBeNull();
+        // "To" holds the only inputs, so the destination appears once
+        expect(to.querySelectorAll('select')).toHaveLength(2);
+        expect(screen.getAllByText('Billing (:7003)')).toHaveLength(1);
+
+        // The action explains itself and the button says what will happen
+        expect(dialog).toHaveTextContent('It is added to the target and removed from "Shop".');
+        expect(screen.getByRole('button', { name: 'Move now' })).toBeEnabled();
+        await user.click(screen.getByRole('radio', { name: 'Copy' }));
+        expect(dialog).toHaveTextContent('A copy is added to the target. "Shop" keeps the original.');
+        expect(screen.getByRole('button', { name: 'Copy now' })).toBeInTheDocument();
     });
 });

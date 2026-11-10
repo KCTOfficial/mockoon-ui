@@ -263,11 +263,12 @@ Folders only group routes in the UI; they are saved in the environment file the 
 
 #### Copy or move to another environment
 
-**⋯ → Copy to environment…** or **Move to environment…** opens a dialog that shows the item and a **From → To** summary (environment, port and folder), updated as you choose:
+**⋯ → Copy to environment…** or **Move to environment…** opens a dialog that reads from top to bottom:
 
-1. Switch between **Copy** and **Move** if needed: *Copy* leaves the original in place, *Move* removes it
-2. Pick the target **Environment** and **Folder** (or *Top level*)
-3. Click **Copy** / **Move**
+1. **Action** - *Copy* adds a copy and leaves the original in place; *Move* removes it from where it is. The line under it says which
+2. **From** (grey, read-only) - the route or folder, and the environment, port and folder it is in now
+3. **To** (blue) - pick the target **Environment** and **Folder** (or *Top level*)
+4. Click **Copy now** / **Move now**
 
 - A folder travels with everything inside it, subfolders included
 - **Data buckets and callbacks** the routes use come along when the target does not have them yet, so `{{data 'users'}}` keeps working
