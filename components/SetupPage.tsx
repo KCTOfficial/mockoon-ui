@@ -1,40 +1,13 @@
 import { useEffect, useState } from 'react';
-import { CheckIcon, CopyIcon } from '@primer/octicons-react';
 import PasswordInput from './shared/PasswordInput';
+import { FIREWALL_LABELS, Firewall, FirewallCommands, firewallCommands } from './shared/firewall';
 import logo from '@/images/logo.png';
 
 interface SetupInfo {
     needsCredentials: boolean;
     uiPort: { value: number; locked: boolean };
     mockPortRange: { min: number; max: number; locked: boolean };
-    firewall: 'ufw' | 'firewalld' | 'windows' | 'none';
-}
-
-const FIREWALL_LABELS: Record<SetupInfo['firewall'], string> = {
-    ufw: 'ufw',
-    firewalld: 'firewalld',
-    windows: 'Windows Firewall',
-    none: '',
-};
-
-/** Commands to open the UI port and the mock range once (MOCKOON_FIREWALL); the UI never runs them. */
-function firewallCommands(firewall: SetupInfo['firewall'], uiPort: number, min: number, max: number): string[] {
-    if (firewall === 'ufw') {
-        return [`sudo ufw allow ${uiPort}/tcp`, `sudo ufw allow ${min}:${max}/tcp`];
-    }
-    if (firewall === 'firewalld') {
-        return [
-            `sudo firewall-cmd --permanent --add-port=${uiPort}/tcp --add-port=${min}-${max}/tcp`,
-            'sudo firewall-cmd --reload',
-        ];
-    }
-    if (firewall === 'windows') {
-        return [
-            `New-NetFirewallRule -DisplayName "Mockoon UI" -Direction Inbound -Protocol TCP -LocalPort ${uiPort} -Action Allow`,
-            `New-NetFirewallRule -DisplayName "Mockoon mock servers" -Direction Inbound -Protocol TCP -LocalPort ${min}-${max} -Action Allow`,
-        ];
-    }
-    return [];
+    firewall: Firewall;
 }
 
 interface SetupPageProps {
@@ -63,17 +36,6 @@ export default function SetupPage({ onDone }: SetupPageProps) {
     const [mockPortMax, setMockPortMax] = useState(7020);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<string | null>(null);
-    const [copied, setCopied] = useState<number | null>(null);
-
-    const copyCommand = async (command: string, index: number) => {
-        try {
-            await navigator.clipboard.writeText(command);
-            setCopied(index);
-            setTimeout(() => setCopied(null), 2000);
-        } catch {
-            // Clipboard needs HTTPS or localhost; the command can still be selected by hand
-        }
-    };
 
     useEffect(() => {
         fetch('/api/setup')
@@ -270,24 +232,10 @@ export default function SetupPage({ onDone }: SetupPageProps) {
                                 {info.firewall !== 'none' && (
                                     <div>
                                         <span className="form-label font-normal">Firewall ({FIREWALL_LABELS[info.firewall]})</span>
-                                        <div className="bg-canvas-inset rounded-md border border-border-custom divide-y divide-border-muted">
-                                            {firewallCommands(info.firewall, uiPort, mockPortMin, mockPortMax).map((command, i) => (
-                                                <div key={command} className="flex items-center gap-2 pl-3 pr-1 py-1">
-                                                    <code className="flex-1 min-w-0 text-xs font-mono text-fg-default break-words">
-                                                        <span className="text-fg-muted select-none">{info.firewall === 'windows' ? 'PS> ' : '$ '}</span>{command}
-                                                    </code>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => copyCommand(command, i)}
-                                                        className="btn btn-invisible btn-icon btn-sm shrink-0"
-                                                        title="Copy command"
-                                                        aria-label="Copy command"
-                                                    >
-                                                        {copied === i ? <CheckIcon className="text-success" /> : <CopyIcon />}
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <FirewallCommands
+                                            firewall={info.firewall}
+                                            commands={firewallCommands(info.firewall, uiPort, mockPortMin, mockPortMax)}
+                                        />
                                         <p className="form-caption">
                                             {info.firewall === 'windows' ? 'Run once in PowerShell as Administrator. ' : 'Run once on the server. '}
                                             Mockoon UI never changes the firewall; set MOCKOON_FIREWALL in .env to switch or hide this.

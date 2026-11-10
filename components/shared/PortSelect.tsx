@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PORT_RANGE_CHANGED_EVENT } from '../PortRangeSettings';
 
 interface PortInfo {
     min: number;
@@ -27,11 +28,17 @@ export default function PortSelect({ id, value, onChange, onCommit, currentFilen
 
     useEffect(() => {
         let cancelled = false;
-        fetch('/api/environments/ports')
+        const load = () => fetch('/api/environments/ports')
             .then(res => (res.ok ? res.json() : null))
             .then(data => { if (!cancelled && data) setInfo(data); })
             .catch(() => { /* fall back to the number input; the server still validates */ });
-        return () => { cancelled = true; };
+        load();
+        // The range can be changed from the account dialog while this picker is open
+        window.addEventListener(PORT_RANGE_CHANGED_EVENT, load);
+        return () => {
+            cancelled = true;
+            window.removeEventListener(PORT_RANGE_CHANGED_EVENT, load);
+        };
     }, [currentFilename]);
 
     if (!info || info.max - info.min + 1 > MAX_OPTIONS) {

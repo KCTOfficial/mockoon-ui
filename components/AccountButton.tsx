@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PersonIcon, XIcon } from '@primer/octicons-react';
 import PasswordInput from './shared/PasswordInput';
+import PortRangeSettings from './PortRangeSettings';
 
 interface AccountButtonProps {
     notify: (message: string, type?: 'success' | 'error') => void;
@@ -11,7 +12,7 @@ interface AccountInfo {
     managedByEnv: boolean;
 }
 
-/** Header button opening the account dialog: change the login, or run the first-run setup again. */
+/** Header button opening the account dialog: change the login or the mock port range, or run the first-run setup again. */
 export function AccountButton({ notify }: AccountButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [info, setInfo] = useState<AccountInfo | null>(null);
@@ -206,6 +207,8 @@ export function AccountButton({ notify }: AccountButtonProps) {
                                     </button>
                                 </div>
                             </form>
+
+                            <PortRangeSettings notify={notify} />
 
                             <div className="Box !border-danger-emphasis p-3 space-y-3">
                                 <div>

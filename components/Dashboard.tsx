@@ -456,20 +456,31 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                             envFilename={activeEnv?.filename}
                             activeRouteId={activeRouteId}
                             onSelectRoute={setActiveRouteId}
-                            onRouteCreated={(newRoute) => {
+                            onRouteCreated={(newRoute, hierarchy) => {
                                 if (activeEnvId) {
                                     setEnvironments(prev => prev.map(env =>
                                         env.uuid === activeEnvId
-                                            ? { ...env, routes: [...env.routes, newRoute] }
+                                            ? { ...env, ...hierarchy, routes: [...env.routes, newRoute] }
                                             : env
                                     ));
                                 }
+                            }}
+                            onHierarchyChange={(hierarchy) => {
+                                if (activeEnvId) handleUpdateEnvironment(activeEnvId, hierarchy);
                             }}
                             onRouteDeleted={(routeUuid) => {
                                 if (activeEnvId) {
                                     setEnvironments(prev => prev.map(env =>
                                         env.uuid === activeEnvId
-                                            ? { ...env, routes: env.routes.filter(r => r.uuid !== routeUuid) }
+                                            ? {
+                                                ...env,
+                                                routes: env.routes.filter(r => r.uuid !== routeUuid),
+                                                rootChildren: env.rootChildren.filter(c => c.uuid !== routeUuid),
+                                                folders: env.folders.map(f => ({
+                                                    ...f,
+                                                    children: f.children.filter(c => c.uuid !== routeUuid),
+                                                })),
+                                            }
                                             : env
                                     ));
                                     if (activeRouteId === routeUuid) {

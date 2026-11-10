@@ -2,7 +2,18 @@ import { randomBytes } from 'crypto';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
 import { startSession } from './auth';
-import { clearSettings, getEnvCredentials, getSettings, hashPassword, logSetupRequired, saveSettings } from './lib/settings';
+import { loadEnvironments } from './lib/data-dir';
+import { getPortRange } from './lib/port-range';
+import {
+    clearSettings,
+    getEnvCredentials,
+    getFirewall,
+    getSettings,
+    getUiPort,
+    hashPassword,
+    logSetupRequired,
+    saveSettings,
+} from './lib/settings';
 import { SESSION_COOKIE, getLoginUsername, verifyCredentials, verifyCurrentPassword } from '@/lib/auth';
 
 const FAILED_PASSWORD_DELAY_MS = 800;
@@ -73,4 +84,46 @@ accountRoutes.post('/reset', async (c) => {
     console.log('Setup reset from the UI.');
     logSetupRequired();
     return c.json({ success: true });
+});
+
+const isPort = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65535;
+
+const portRangeLocked = () => !!process.env.MOCKOON_PORT_RANGE?.trim();
+
+/** Mock server port range, editable after the setup (unless MOCKOON_PORT_RANGE pins it). */
+accountRoutes.get('/port-range', (c) =>
+    c.json({ ...getPortRange(), locked: portRangeLocked(), uiPort: getUiPort(), firewall: getFirewall() })
+);
+
+accountRoutes.post('/port-range', async (c) => {
+    const settings = getSettings();
+    if (portRangeLocked()) {
+        return c.json({ error: 'The range is set by MOCKOON_PORT_RANGE on the server. Change it there and restart.' }, 409);
+    }
+    if (!settings) {
+        return c.json({ error: 'Complete the setup first.' }, 409);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const min = body.min;
+    const max = body.max;
+    if (!isPort(min) || !isPort(max) || min > max) {
+        return c.json({ error: 'Port range is invalid (from must be ≤ to, both 1-65535).' }, 400);
+    }
+    const uiPort = getUiPort();
+    if (uiPort >= min && uiPort <= max) {
+        return c.json({ error: `Mockoon UI port ${uiPort} must be outside the range ${min}-${max}.` }, 400);
+    }
+
+    // Shrinking must not strand an environment on a port it could no longer start on
+    const outside = loadEnvironments().filter(env => env.port < min || env.port > max);
+    if (outside.length > 0) {
+        const list = outside.map(env => `"${env.name}" (${env.port})`).join(', ');
+        return c.json({ error: `Move these environments into ${min}-${max} first: ${list}.` }, 400);
+    }
+
+    saveSettings({ ...settings, mockPortRange: { min, max } });
+    console.log(`Mock server port range changed to ${min}-${max}.`);
+    return c.json({ success: true, min, max });
 });

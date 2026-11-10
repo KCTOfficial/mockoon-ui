@@ -182,6 +182,14 @@ The form is read-only while `.env` sets the login.
 2. Restart the UI and sign in with them
 3. To go back to the login from the setup, remove both lines and restart (or keep them; `.env` simply wins)
 
+**Change the mock server port range**
+
+1. In **Account**, under **Mock server port range**, change **from** and/or **to** (e.g. `7002`-`7020` to `7002`-`7050`)
+2. Click **Save range**. It applies right away; no restart or setup reset is needed, and the login and running mock servers are kept
+3. Open the new range in the firewall: the dialog shows the commands once the range is changed (see [Firewall](#firewall))
+
+The range must not include the UI port, and it cannot be narrowed while an environment still uses a port outside the new range (move it first in its **Settings → Port**). The section is read-only while `MOCKOON_PORT_RANGE` is set.
+
 **Run the setup again**
 
 1. In **Account**, in the red box, click **Run setup again…**
@@ -196,12 +204,22 @@ Environments and running mock servers are not touched. As with the first run, co
 2. Enter the environment name and pick the port from the list (the next free port is preselected)
 3. Add routes, responses, and data buckets as needed
 
+### Organizing Routes in Folders
+
+- **+ ▾ → Folder** in the route list adds a folder and opens its name for editing (Enter saves, Esc cancels)
+- Hover a folder for its buttons: **+** adds a route or subfolder inside it, the pencil renames it (or double-click the name), the arrow moves it, the trash deletes it
+- Move a route or folder by dragging it onto a folder, or onto the empty area below the list for the top level; the arrow button on hover does the same from a menu
+- Deleting a folder keeps its routes and subfolders: they move up one level
+- The filter searches inside folders and opens the ones with matches
+
+Folders only group routes in the UI; they are saved in the environment file the same way Mockoon desktop saves them.
+
 ### Mock Server Ports
 
 Two mock servers cannot listen on the same port: the second one fails to start and requests reach the first one (typically answering `404` for routes of the other environment). Mockoon UI therefore enforces:
 
 - **One port per environment.** Creating, importing, editing or starting an environment with a port already used by another environment is refused
-- **Ports from the allowed range only** (setup, or `MOCKOON_PORT_RANGE` such as `7002-7020`). Without a range any port is accepted, but still only once
+- **Ports from the allowed range only** (setup or **Account → Mock server port range**, or `MOCKOON_PORT_RANGE` such as `7002-7020`). Without a range any port is accepted, but still only once
 - **Never the UI port**
 
 **Port picker.** In **New environment** and in an environment's **Settings → Port**, the port is chosen from a list of every port in the range:
@@ -278,6 +296,7 @@ Every delete asks for confirmation in a dialog (**Cancel** or clicking outside c
 | ----------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Environment | Trash icon on hover in the sidebar, or **Settings → Danger Zone** | Its port and where the file goes                                        |
 | Route       | Trash icon on hover in the route list                             | Method, path and number of responses, e.g. `GET /users` and 2 responses |
+| Folder      | Trash icon on hover on the folder                                 | Folder name; its routes and subfolders move up one level instead of being deleted |
 | Response    | Trash icon next to the response tabs                              | The response label                                                      |
 | Data bucket | × on hover in the data bucket list                                | The bucket name and the `{{data 'id'}}` reference that will break       |
 
@@ -377,6 +396,8 @@ All endpoints except `/api/auth/*` and `/api/setup` require a valid session cook
 | `POST` | `/api/setup`         | Save the setup (`{ username, password, uiPort, mockPortMin, mockPortMax }`) and sign in; `409` once done                           |
 | `GET`  | `/api/account`       | Current username and whether `.env` sets the login                                                                                 |
 | `POST` | `/api/account`       | Change the login (`{ currentPassword, username, newPassword? }`); `409` while `.env` sets it                                       |
+| `GET`  | `/api/account/port-range` | Mock server port range, whether `MOCKOON_PORT_RANGE` locks it, UI port and firewall                                         |
+| `POST` | `/api/account/port-range` | Change the range (`{ min, max }`); `400` if it contains the UI port or leaves an environment outside; `409` while locked |
 | `POST` | `/api/account/reset` | Run the setup again (`{ username, password }`): deletes `config/settings.json` and signs everyone out                              |
 
 ### Environment Endpoints
@@ -403,7 +424,7 @@ Each endpoint takes `{ filename, action, ... }` in the JSON body.
 | `POST` | `/api/environments/responses`    | `create`, `update`, `delete`, `duplicate`                       |
 | `POST` | `/api/environments/databuckets`  | `create`, `update`, `delete`                                    |
 | `POST` | `/api/environments/callbacks`    | `create`, `update`, `delete`                                    |
-| `POST` | `/api/environments/folders`      | `create`, `update`, `delete`                                    |
+| `POST` | `/api/environments/folders`      | `create`, `update` (rename), `delete` (contents move up), `move` (`{ itemType, itemUuid, targetFolderUuid }`) |
 
 ### Action Endpoints
 

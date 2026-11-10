@@ -113,13 +113,23 @@ export async function POST(req: Request) {
             }
 
             fs.writeFileSync(filePath, JSON.stringify(environment, null, 2), 'utf-8');
-            return Response.json({ success: true, route: newRoute });
+            return Response.json({
+                success: true,
+                route: newRoute,
+                folders: environment.folders,
+                rootChildren: environment.rootChildren,
+            });
         }
 
         if (action === 'delete') {
             if (!routeUuid) return Response.json({ error: 'Missing routeUuid' }, { status: 400 });
 
             environment.routes = environment.routes.filter(r => r.uuid !== routeUuid);
+            // Drop its place in the tree too, so no folder keeps pointing at a missing route
+            environment.rootChildren = (environment.rootChildren ?? []).filter(c => c.uuid !== routeUuid);
+            (environment.folders ?? []).forEach(f => {
+                f.children = f.children.filter(c => c.uuid !== routeUuid);
+            });
             fs.writeFileSync(filePath, JSON.stringify(environment, null, 2), 'utf-8');
             return Response.json({ success: true });
         }

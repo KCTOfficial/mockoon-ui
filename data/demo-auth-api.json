@@ -6,7 +6,13 @@
   "latency": 0,
   "port": 7003,
   "hostname": "",
-  "folders": [],
+  "folders": [
+    {
+      "uuid": "e7f37787-7ab0-4fc9-a7cd-fb961d824967",
+      "name": "tes",
+      "children": []
+    }
+  ],
   "routes": [
     {
       "uuid": "bcd69008-1c00-4899-9a49-fb4c5fb875f7",
@@ -175,6 +181,10 @@
     {
       "type": "route",
       "uuid": "d5b4bfdc-f0dc-4a53-b22b-52ba2f52ae18"
+    },
+    {
+      "type": "folder",
+      "uuid": "e7f37787-7ab0-4fc9-a7cd-fb961d824967"
     }
   ],
   "proxyMode": false,

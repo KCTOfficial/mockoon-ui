@@ -99,4 +99,66 @@ describe('/api/account', () => {
         expect(fs.existsSync(path.join(dir, 'config', 'settings.json'))).toBe(false);
         expect(auth.isAuthConfigured()).toBe(false);
     });
+
+    describe('port range', () => {
+        const writeEnv = (name: string, port: number) => {
+            fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+            fs.writeFileSync(
+                path.join(dir, 'data', `${name}.json`),
+                JSON.stringify({ uuid: name, name, port, routes: [], folders: [], rootChildren: [] })
+            );
+        };
+
+        beforeEach(() => {
+            delete process.env.MOCKOON_PORT_RANGE;
+            delete process.env.PORT;
+        });
+
+        it('reports the current range', async () => {
+            const res = await account.accountRoutes.request('/port-range');
+            expect(await res.json()).toMatchObject({ min: 7002, max: 7020, locked: false, uiPort: 7001 });
+        });
+
+        it('widens the range without running the setup again', async () => {
+            writeEnv('shop', 7002);
+            const res = await post('/port-range', { min: 7002, max: 7050 });
+            expect(res.status).toBe(200);
+            expect(settings.getSettings()?.mockPortRange).toEqual({ min: 7002, max: 7050 });
+            // Login and secret are untouched
+            expect(settings.getSettings()?.secret).toBe('secret-1');
+        });
+
+        it('refuses a range that leaves an environment outside it', async () => {
+            writeEnv('shop', 7015);
+            const res = await post('/port-range', { min: 7002, max: 7010 });
+            expect(res.status).toBe(400);
+            expect((await res.json()).error).toContain('"shop" (7015)');
+            expect(settings.getSettings()?.mockPortRange).toEqual({ min: 7002, max: 7020 });
+        });
+
+        it('refuses a range containing the UI port', async () => {
+            const res = await post('/port-range', { min: 7000, max: 7050 });
+            expect(res.status).toBe(400);
+        });
+
+        it.each([
+            [{ min: 7050, max: 7002 }],
+            [{ min: 0, max: 7002 }],
+            [{ min: '7002', max: 7050 }],
+            [{ min: 7002, max: 70000 }],
+        ])('rejects an invalid range %j', async (body) => {
+            const res = await post('/port-range', body);
+            expect(res.status).toBe(400);
+        });
+
+        it('is locked while MOCKOON_PORT_RANGE is set', async () => {
+            process.env.MOCKOON_PORT_RANGE = '7002-7020';
+            try {
+                const res = await post('/port-range', { min: 7002, max: 7050 });
+                expect(res.status).toBe(409);
+            } finally {
+                delete process.env.MOCKOON_PORT_RANGE;
+            }
+        });
+    });
 });
