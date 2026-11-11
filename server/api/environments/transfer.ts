@@ -1,8 +1,10 @@
 import fs from 'fs';
-import { Environment } from '@/types/mockoon';
+import { Environment, FolderChild } from '@/types/mockoon';
 import { resolveEnvFile } from '../../lib/data-dir';
 import { normalizeEnvironment } from '../../lib/normalize-env';
-import { TransferError, findItem, insertItems, removeItem } from '../../lib/route-bundle';
+import {
+    TransferError, collect, findItem, findItems, insertItems, isInsideFolder, prepareDestination, relocateItems, removeItem,
+} from '../../lib/route-bundle';
 
 /** Reads an environment file in the current Mockoon format, so routes from an older file fit a newer one. */
 export function readEnvironment(filename: unknown): { path: string; env: Environment } {
@@ -22,36 +24,76 @@ export const errorResponse = (error: unknown, context: string) => {
 };
 
 /**
- * Copies or moves a route (HTTP, CRUD or WebSocket) or a folder with everything inside it to another environment.
+ * Copies or moves routes (HTTP, CRUD or WebSocket) and folders with everything inside them, to another
+ * environment or to another folder of the same one. Body: `sourceFilename`, `targetFilename`, `mode`
+ * (copy | move), the items as `items: [{ type, uuid }]` (or one as `itemType` + `itemUuid`), and where they go:
+ * `targetFolderUuid` (none: top level), plus `newFolderName` to create a folder there and put them in it.
  * Copies get new uuids; data buckets and callbacks the routes use come along unless the target already has them.
+ * A copy inside the same environment gets "-copy-N" on paths that are taken; a move there keeps the uuids.
  */
 export async function POST(req: Request) {
     try {
         const body = await req.json().catch(() => ({}));
-        const { sourceFilename, targetFilename, itemType, itemUuid, mode } = body;
-        const targetFolderUuid: string | null = body.targetFolderUuid || null;
+        const { sourceFilename, targetFilename, itemType, itemUuid, mode, newFolderName } = body;
+        const targetFolderUuid: string | null = typeof body.targetFolderUuid === 'string' && body.targetFolderUuid ? body.targetFolderUuid : null;
 
         if (mode !== 'copy' && mode !== 'move') {
             return Response.json({ error: 'Mode must be copy or move' }, { status: 400 });
         }
-        if ((itemType !== 'route' && itemType !== 'folder') || typeof itemUuid !== 'string' || !itemUuid) {
+        const bulk = body.items !== undefined;
+        if (!bulk && ((itemType !== 'route' && itemType !== 'folder') || typeof itemUuid !== 'string' || !itemUuid)) {
             return Response.json({ error: 'Missing itemUuid or invalid itemType' }, { status: 400 });
-        }
-        if (sourceFilename === targetFilename) {
-            return Response.json({ error: 'Pick another environment as the target' }, { status: 400 });
         }
 
         const source = readEnvironment(sourceFilename);
-        const target = readEnvironment(targetFilename);
-        const root = findItem(source.env, itemType, itemUuid);
-        if (!root) {
-            return Response.json({ error: `${itemType === 'route' ? 'Route' : 'Folder'} not found` }, { status: 404 });
+        const sameEnvironment = resolveEnvFile(targetFilename) === source.path;
+        // One object for both when they are the same file, so the single write holds every change
+        const target = sameEnvironment ? source : readEnvironment(targetFilename);
+
+        let roots: FolderChild[];
+        if (bulk) {
+            roots = findItems(source.env, body.items);
+        } else {
+            const root = findItem(source.env, itemType, itemUuid);
+            if (!root) {
+                return Response.json({ error: `${itemType === 'route' ? 'Route' : 'Folder'} not found` }, { status: 404 });
+            }
+            roots = [root];
+        }
+        const moved = collect(source.env, roots);
+
+        if (sameEnvironment && mode === 'move') {
+            // Checked before a new folder is made, so a refused move changes nothing
+            if (targetFolderUuid && roots.some(root => root.type === 'folder' && isInsideFolder(source.env, root.uuid, targetFolderUuid))) {
+                return Response.json({ error: 'A folder cannot be moved into itself' }, { status: 400 });
+            }
+            const destination = prepareDestination(source.env, targetFolderUuid, newFolderName);
+            relocateItems(source.env, roots, destination);
+            fs.writeFileSync(source.path, JSON.stringify(source.env, null, 2), 'utf-8');
+            const saved = { ...source.env, filename: sourceFilename };
+            return Response.json({
+                success: true,
+                mode,
+                itemUuid: roots[0].uuid,
+                itemUuids: roots.map(r => r.uuid),
+                folderUuid: destination,
+                routeCount: moved.routes.length,
+                folderCount: moved.folders.length,
+                bucketCount: 0,
+                callbackCount: 0,
+                warnings: [],
+                source: saved,
+                target: saved,
+            });
         }
 
-        const result = insertItems(source.env, [root], target.env, targetFolderUuid);
-        if (mode === 'move') removeItem(source.env, root);
+        const destination = prepareDestination(target.env, targetFolderUuid, newFolderName);
+        // A copy reads from a snapshot, so it never walks into what it is adding
+        const from = sameEnvironment ? structuredClone(source.env) : source.env;
+        const result = insertItems(from, roots, target.env, destination, { renameConflicts: sameEnvironment });
+        if (mode === 'move') roots.forEach(root => removeItem(source.env, root));
 
-        // Target first: if writing the source then fails, the item exists twice instead of nowhere
+        // Target first: if writing the source then fails, the items exist twice instead of nowhere
         fs.writeFileSync(target.path, JSON.stringify(target.env, null, 2), 'utf-8');
         if (mode === 'move') {
             fs.writeFileSync(source.path, JSON.stringify(source.env, null, 2), 'utf-8');
@@ -62,6 +104,8 @@ export async function POST(req: Request) {
             success: true,
             mode,
             itemUuid: refs[0].uuid,
+            itemUuids: refs.map(r => r.uuid),
+            folderUuid: destination,
             ...counts,
             source: { ...source.env, filename: sourceFilename },
             target: { ...target.env, filename: targetFilename },

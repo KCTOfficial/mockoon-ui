@@ -33,9 +33,18 @@ export function trashItem(env: Environment, root: FolderChild, filename: string)
 
     const dir = getTrashDir();
     fs.mkdirSync(dir, { recursive: true });
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const id = `${root.type}-${slug(filename.replace(/\.json$/, '')) || 'environment'}-${stamp}.json`;
-    // 'wx': two deletes in the same millisecond must not overwrite each other
-    fs.writeFileSync(path.join(dir, id), JSON.stringify(bundle, null, 2), { encoding: 'utf-8', flag: 'wx' });
-    return id;
+    const content = JSON.stringify(bundle, null, 2);
+    const now = Date.now();
+    // 'wx': two deletes in the same millisecond (a bulk delete) must not overwrite each other, so a taken
+    // name moves on by a millisecond; the name keeps the format the recycle bin reads the time from
+    for (let offset = 0; ; offset++) {
+        const stamp = new Date(now + offset).toISOString().replace(/[:.]/g, '-');
+        const id = `${root.type}-${slug(filename.replace(/\.json$/, '')) || 'environment'}-${stamp}.json`;
+        try {
+            fs.writeFileSync(path.join(dir, id), content, { encoding: 'utf-8', flag: 'wx' });
+            return id;
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || offset >= 10_000) throw error;
+        }
+    }
 }

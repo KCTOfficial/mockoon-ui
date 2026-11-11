@@ -10,7 +10,7 @@ import DataBucketsEditor from './DataBucketsEditor';
 import NewEnvironmentModal from './NewEnvironmentModal';
 import RecycleBinDialog, { RestoreResult } from './RecycleBinDialog';
 import { TransferResult } from './TransferDialog';
-import ImportRoutesDialog, { RoutesFileSummary, RoutesImportResult, summarizeRoutesFile } from './ImportRoutesDialog';
+import ImportRoutesDialog, { ImportMode, RoutesFileSummary, RoutesImportResult, summarizeRoutesFile } from './ImportRoutesDialog';
 import WarningsDialog from './shared/WarningsDialog';
 import { ThemeToggle } from './ThemeToggle';
 import { LogoutButton } from './LogoutButton';
@@ -49,8 +49,15 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
     const [isDeleting, setIsDeleting] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     const [trashCount, setTrashCount] = useState(0);
-    // A routes export picked with the sidebar's JSON import, waiting for "where should they go?"
-    const [routesImport, setRoutesImport] = useState<{ file: File; summary: RoutesFileSummary } | null>(null);
+    // A routes export or environment file picked for import, waiting for "where should it go?"; the route list's
+    // import presets its environment and folder
+    const [routesImport, setRoutesImport] = useState<{
+        file: File;
+        summary: RoutesFileSummary;
+        filename?: string;
+        folderUuid?: string;
+        mode?: ImportMode;
+    } | null>(null);
     const [importWarnings, setImportWarnings] = useState<{ summary: string; warnings: string[] } | null>(null);
 
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -348,7 +355,7 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
     };
 
     const handleImportEnvironment = async (file: File) => {
-        // A routes export (not a whole environment): ask where the routes should go first
+        // A routes export or an environment with a route tree: ask where it should go first
         try {
             const summary = summarizeRoutesFile(JSON.parse(await file.text()));
             if (summary) {
@@ -380,6 +387,23 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
         } catch (error: any) {
             showNotification(error.message || 'Failed to import environment', 'error');
         }
+    };
+
+    // "Import from file…" in the route list: same dialog, preset to the open environment and that folder
+    const handleImportIntoList = async (file: File, folderUuid: string | null) => {
+        let content: unknown;
+        try {
+            content = JSON.parse(await file.text());
+        } catch {
+            showNotification('The file is not valid JSON', 'error');
+            return;
+        }
+        const summary = summarizeRoutesFile(content);
+        if (!summary) {
+            showNotification('The file is not a routes export or a Mockoon environment', 'error');
+            return;
+        }
+        setRoutesImport({ file, summary, filename: activeEnv?.filename, folderUuid: folderUuid ?? undefined, mode: 'existing' });
     };
 
     const handleDuplicateEnvironment = async (id: string) => {
@@ -632,6 +656,8 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                             environments={environments}
                             onTransferred={handleTransferred}
                             onEnvironmentSaved={replaceSaved}
+                            onImportFile={handleImportIntoList}
+                            onTrashChanged={refreshTrashCount}
                             className={activeRoute ? 'hidden md:flex' : 'flex'}
                         />
                     )}
@@ -753,7 +779,9 @@ export default function Dashboard({ initialEnvironments, onLogout }: DashboardPr
                     file={routesImport.file}
                     summary={routesImport.summary}
                     environments={environments}
-                    activeFilename={activeEnv?.filename}
+                    activeFilename={routesImport.filename ?? activeEnv?.filename}
+                    initialFolderUuid={routesImport.folderUuid}
+                    initialMode={routesImport.mode}
                     onClose={() => setRoutesImport(null)}
                     onImported={handleRoutesImported}
                 />

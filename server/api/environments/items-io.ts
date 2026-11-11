@@ -5,7 +5,10 @@ import { HighestMigrationId } from '@mockoon/commons';
 import { getDataDir } from '../../lib/data-dir';
 import { normalizeEnvironment } from '../../lib/normalize-env';
 import { findAvailablePort } from '../../lib/port-range';
-import { TransferError, buildBundle, bundleFilename, findItem, insertItems, parseBundle } from '../../lib/route-bundle';
+import type { FolderChild } from '@/types/mockoon';
+import {
+    TransferError, buildBundle, bundleFilename, findItem, findItems, insertItems, parseBundle, prepareDestination,
+} from '../../lib/route-bundle';
 import { freeFilename } from './duplicate';
 import { errorResponse, readEnvironment } from './transfer';
 
@@ -14,18 +17,29 @@ export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 const MAX_NAME_LENGTH = 100;
 
 /**
- * Export: downloads a route or a folder (with its subtree, data buckets and callbacks) as
- * `<environment>-<item>.json`. Query: `filename`, `itemType` (route | folder), `itemUuid`.
+ * Export: downloads routes and folders (with their subtrees, data buckets and callbacks) as one file.
+ * Query: `filename`, then one item as `itemType` (route | folder) + `itemUuid`, or several as repeated
+ * `item=<type>:<uuid>`.
  */
 export async function GET(req: Request) {
     try {
         const params = new URL(req.url).searchParams;
         const { env } = readEnvironment(params.get('filename'));
-        const root = findItem(env, params.get('itemType'), params.get('itemUuid'));
-        if (!root) return Response.json({ error: 'Route or folder not found' }, { status: 404 });
+        const listed = params.getAll('item');
+        let roots: FolderChild[];
+        if (listed.length > 0) {
+            roots = findItems(env, listed.map(entry => {
+                const separator = entry.indexOf(':');
+                return { type: entry.slice(0, separator), uuid: entry.slice(separator + 1) };
+            }));
+        } else {
+            const root = findItem(env, params.get('itemType'), params.get('itemUuid'));
+            if (!root) return Response.json({ error: 'Route or folder not found' }, { status: 404 });
+            roots = [root];
+        }
 
-        const name = bundleFilename(env, root);
-        return new Response(JSON.stringify(buildBundle(env, root), null, 2), {
+        const name = bundleFilename(env, roots);
+        return new Response(JSON.stringify(buildBundle(env, roots), null, 2), {
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
                 // The name only has [a-z0-9-.] (see bundleFilename), so it needs no further quoting
@@ -57,7 +71,8 @@ async function newEnvironment(rawName: string) {
 /**
  * Import: adds the routes and folders of an uploaded file (from Export, or a whole Mockoon environment) to an
  * existing environment, or to a new one. Multipart fields: `file`, then either `filename` (+ `targetFolderUuid`)
- * for an existing environment, or `newEnvironmentName` to create one.
+ * for an existing environment, or `newEnvironmentName` to create one. `newFolderName` puts everything in a new
+ * folder, created inside `targetFolderUuid` (or at the top level).
  */
 export async function POST(req: Request) {
     try {
@@ -85,7 +100,8 @@ export async function POST(req: Request) {
         const folderField = form.get('targetFolderUuid');
         const folderUuid = !created && typeof folderField === 'string' && folderField ? folderField : null;
 
-        const result = insertItems(source, roots, target.env, folderUuid);
+        const destination = prepareDestination(target.env, folderUuid, form.get('newFolderName'));
+        const result = insertItems(source, roots, target.env, destination);
         // A new file must not replace one created meanwhile
         fs.writeFileSync(target.path, JSON.stringify(target.env, null, 2), { encoding: 'utf-8', flag: created ? 'wx' : 'w' });
 
@@ -95,6 +111,7 @@ export async function POST(req: Request) {
             kind,
             created,
             itemUuids: refs.map(r => r.uuid),
+            folderUuid: destination,
             ...counts,
             target: { ...target.env, filename: target.filename },
         });

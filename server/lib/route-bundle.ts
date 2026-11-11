@@ -104,15 +104,97 @@ export interface InsertResult {
     warnings: string[];
 }
 
+/** Most routes/folders one bulk request may name. */
+export const MAX_BULK_ITEMS = 1000;
+const MAX_FOLDER_NAME_LENGTH = 100;
+
+/**
+ * Tree entries from a request body: `items: [{ type, uuid }]`, each one present in `env`.
+ * Duplicates and entries inside another listed folder are dropped (they travel with that folder).
+ */
+export function findItems(env: Environment, items: unknown): FolderChild[] {
+    if (!Array.isArray(items) || items.length === 0 || items.length > MAX_BULK_ITEMS) {
+        throw new TransferError(`Pick 1-${MAX_BULK_ITEMS} routes or folders`, 400);
+    }
+    const roots = items.map(item => {
+        const { type, uuid } = (item && typeof item === 'object' ? item : {}) as { type?: unknown; uuid?: unknown };
+        const found = findItem(env, type, uuid);
+        if (!found) throw new TransferError('Route or folder not found', 404);
+        return found;
+    });
+    return topLevelOnly(env, roots);
+}
+
+/** Drops duplicate entries and entries nested in another listed folder; keeps the order given. */
+export function topLevelOnly(env: Environment, roots: FolderChild[]): FolderChild[] {
+    const seen = new Set<string>();
+    const unique = roots.filter(root => !seen.has(root.uuid) && !!seen.add(root.uuid));
+    const nested = new Set<string>();
+    unique.filter(root => root.type === 'folder').forEach(root => {
+        const { routes, folders } = collect(env, [root]);
+        routes.forEach(r => nested.add(r.uuid));
+        folders.forEach(f => { if (f.uuid !== root.uuid) nested.add(f.uuid); });
+    });
+    return unique.filter(root => !nested.has(root.uuid));
+}
+
+/** True when `candidateUuid` is the folder `folderUuid` or anywhere inside it. */
+export function isInsideFolder(env: Environment, folderUuid: string, candidateUuid: string): boolean {
+    return folderUuid === candidateUuid ||
+        collect(env, [{ type: 'folder', uuid: folderUuid }]).folders.some(f => f.uuid === candidateUuid);
+}
+
+/**
+ * The folder items go into: `folderUuid` (null: top level), or, with `newFolderName`, a new folder created
+ * inside it. Throws before changing anything when the folder is missing or the name is invalid.
+ */
+export function prepareDestination(env: Environment, folderUuid: string | null, newFolderName: unknown): string | null {
+    const parent = folderUuid ? env.folders.find(f => f.uuid === folderUuid) : null;
+    if (folderUuid && !parent) throw new TransferError('Target folder not found', 404);
+    if (newFolderName === undefined || newFolderName === null) return folderUuid;
+
+    const name = typeof newFolderName === 'string' ? newFolderName.trim() : '';
+    if (!name || name.length > MAX_FOLDER_NAME_LENGTH) {
+        throw new TransferError(`Folder name must be 1-${MAX_FOLDER_NAME_LENGTH} characters`, 400);
+    }
+    const folder: Folder = { uuid: uuidv4(), name, children: [] };
+    env.folders.push(folder);
+    (parent ? parent.children : env.rootChildren).push({ type: 'folder', uuid: folder.uuid });
+    return folder.uuid;
+}
+
+/**
+ * Moves tree entries inside their own environment (uuids stay). Entries already in the destination keep
+ * their place. A folder cannot go into itself or one of its subfolders.
+ */
+export function relocateItems(env: Environment, roots: FolderChild[], destinationFolderUuid: string | null) {
+    const destination = destinationFolderUuid ? env.folders.find(f => f.uuid === destinationFolderUuid) : null;
+    if (destinationFolderUuid && !destination) throw new TransferError('Target folder not found', 404);
+    if (destinationFolderUuid && roots.some(root => root.type === 'folder' && isInsideFolder(env, root.uuid, destinationFolderUuid))) {
+        throw new TransferError('A folder cannot be moved into itself', 400);
+    }
+    const container = destination ? destination.children : env.rootChildren;
+    roots.forEach(root => {
+        if (container.some(c => c.uuid === root.uuid)) return;
+        env.rootChildren = env.rootChildren.filter(c => c.uuid !== root.uuid);
+        env.folders.forEach(f => { f.children = f.children.filter(c => c.uuid !== root.uuid); });
+        // Re-read: the filter above may have replaced env.rootChildren
+        (destination ? destination.children : env.rootChildren).push({ type: root.type, uuid: root.uuid });
+    });
+}
+
 /**
  * Copies `roots` (and everything under them) from `source` into `target`, inside `destinationFolderUuid`
  * or at the top level. Everything copied gets new uuids. Mutates `target` only.
+ * With `renameConflicts` (a copy inside the same environment), a route whose path is taken gets "-copy-N"
+ * instead of a warning.
  */
 export function insertItems(
     source: Environment,
     roots: FolderChild[],
     target: Environment,
-    destinationFolderUuid: string | null
+    destinationFolderUuid: string | null,
+    options: { renameConflicts?: boolean } = {}
 ): InsertResult {
     const destination = destinationFolderUuid ? target.folders.find(f => f.uuid === destinationFolderUuid) : null;
     if (destinationFolderUuid && !destination) throw new TransferError('Target folder not found', 404);
@@ -125,13 +207,18 @@ export function insertItems(
     items.folders.forEach(f => ids.set(f.uuid, uuidv4()));
 
     const existingEndpoints = new Set(target.routes.map(endpointKey));
+    // Paths taken so far, including the copies made in this call
+    const taken: Route[] = [...target.routes];
     const routes: Route[] = items.routes.map(route => {
-        if (existingEndpoints.has(endpointKey(route))) {
-            warnings.push(`${describeRoute(route)} already exists in "${target.name}"; the route listed first answers.`);
-        }
         const copy: Route = structuredClone(route);
         copy.uuid = ids.get(route.uuid)!;
         copy.responses.forEach(response => { response.uuid = uuidv4(); });
+        if (existingEndpoints.has(endpointKey(route))) {
+            if (options.renameConflicts) copy.endpoint = copyEndpoint(route, taken);
+            else warnings.push(`${describeRoute(route)} already exists in "${target.name}"; the route listed first answers.`);
+        }
+        taken.push(copy);
+        if (options.renameConflicts) existingEndpoints.add(endpointKey(copy));
         return copy;
     });
     const folders: Folder[] = items.folders.map(folder => ({
@@ -202,9 +289,10 @@ export function removeItem(env: Environment, root: FolderChild) {
     env.folders.forEach(f => { f.children = f.children.filter(c => c.uuid !== root.uuid); });
 }
 
-/** File content for "Export": the item, its subtree and what it uses, shaped like a (partial) environment. */
-export function buildBundle(env: Environment, root: FolderChild) {
-    const items = collect(env, [root]);
+/** File content for "Export": the item(s), their subtrees and what they use, shaped like a (partial) environment. */
+export function buildBundle(env: Environment, root: FolderChild | FolderChild[]) {
+    const roots = Array.isArray(root) ? root : [root];
+    const items = collect(env, roots);
     const { buckets, callbacks } = dependencies(env, items.routes);
     return {
         type: BUNDLE_MARKER,
@@ -212,7 +300,7 @@ export function buildBundle(env: Environment, root: FolderChild) {
         exportedFrom: env.name,
         exportedAt: new Date().toISOString(),
         lastMigration: env.lastMigration,
-        rootChildren: [root],
+        rootChildren: roots,
         folders: items.folders,
         routes: items.routes,
         data: buckets,
@@ -262,11 +350,18 @@ export function parseBundle(content: unknown): { env: Environment; roots: Folder
     return { env, roots, kind: isBundle ? 'bundle' : 'environment' };
 }
 
-/** File name for an export: `<environment>-<method>-<path>.json` or `<environment>-folder-<name>.json`. */
-export function bundleFilename(env: Environment, root: FolderChild): string {
+/**
+ * File name for an export: `<environment>-<method>-<path>.json`, `<environment>-folder-<name>.json`,
+ * or `<environment>-<n>-items.json` for several items.
+ */
+export function bundleFilename(env: Environment, roots: FolderChild | FolderChild[]): string {
     const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const list = Array.isArray(roots) ? roots : [roots];
+    const root = list[0];
     let item: string;
-    if (root.type === 'route') {
+    if (list.length > 1) {
+        item = `${list.length}-items`;
+    } else if (root.type === 'route') {
         const route = env.routes.find(r => r.uuid === root.uuid)!;
         const endpoint = slug(route.endpoint) || 'root';
         item = route.type === 'crud' ? `crud-${endpoint}` : `${route.type === 'ws' ? 'ws' : route.method || route.type}-${endpoint}`;

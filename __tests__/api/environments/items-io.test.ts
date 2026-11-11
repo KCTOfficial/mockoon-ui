@@ -94,6 +94,31 @@ describe('/api/environments/items (export / import)', () => {
             expect(ws.headers.get('content-disposition')).toContain('filename="demo-auth-api-ws-live.json"');
         });
 
+        it('puts several items in one file, named after how many there are', async () => {
+            const res = await GET(new Request(`http://localhost/x?filename=source.json&item=route:${ids.login}&item=folder:${ids.group}&item=route:${ids.me}`));
+            expect(res.status).toBe(200);
+            expect(res.headers.get('content-disposition')).toBe('attachment; filename="demo-auth-api-2-items.json"');
+            const bundle = await res.json();
+            // The route inside the folder goes with the folder
+            expect(bundle.rootChildren).toEqual([{ type: 'route', uuid: ids.login }, { type: 'folder', uuid: ids.group }]);
+            expect(bundle.routes.map((r: { uuid: string }) => r.uuid)).toEqual([ids.login, ids.me, ids.ws]);
+            expect(bundle.data.map((b: { id: string }) => b.id)).toEqual(['usr1']);
+
+            // ...and imports back as two top-level items
+            const { status, data } = await importFile(JSON.stringify(bundle));
+            expect(status).toBe(200);
+            expect(data).toMatchObject({ routeCount: 3, folderCount: 1 });
+            expect(data.itemUuids).toHaveLength(2);
+            expectValid(read('target.json'));
+        });
+
+        it.each([
+            [`item=route:${randomUUID()}`, 404],
+            ['item=nothing', 404],
+        ])('refuses the items %s', async (query, status) => {
+            expect((await GET(new Request(`http://localhost/x?filename=source.json&${query}`))).status).toBe(status);
+        });
+
         it.each([
             [{ filename: 'source.json', itemType: 'route', itemUuid: randomUUID() }, 404],
             [{ filename: 'source.json', itemType: 'bucket', itemUuid: ids.login }, 404],
@@ -149,6 +174,28 @@ describe('/api/environments/items (export / import)', () => {
             expect(target).toMatchObject({ name: 'Target', port: 7004 });
             expect(target.rootChildren).toHaveLength(3); // Inbox + login + group
             expectValid(target);
+        });
+
+        it('puts everything in a new folder inside the chosen one', async () => {
+            const env = fs.readFileSync(file('source.json'), 'utf-8');
+            const { status, data } = await importFile(env, { targetFolderUuid: ids.tFolder, newFolderName: 'Demo Auth API' });
+
+            expect(status).toBe(200);
+            const target = read('target.json');
+            const created = target.folders.find(f => f.uuid === data.folderUuid)!;
+            expect(created.name).toBe('Demo Auth API');
+            expect(target.folders.find(f => f.uuid === ids.tFolder)!.children).toEqual([{ type: 'folder', uuid: created.uuid }]);
+            expect(created.children.map(c => c.uuid)).toEqual(data.itemUuids);
+            expect(target.rootChildren).toEqual([{ type: 'folder', uuid: ids.tFolder }]);
+            expectValid(target);
+        });
+
+        it('refuses an empty new folder name and leaves the target alone', async () => {
+            const before = fs.readFileSync(file('target.json'), 'utf-8');
+            const { status, data } = await importFile(fs.readFileSync(file('source.json'), 'utf-8'), { newFolderName: ' ' });
+            expect(status).toBe(400);
+            expect(data.error).toBe('Folder name must be 1-100 characters');
+            expect(fs.readFileSync(file('target.json'), 'utf-8')).toBe(before);
         });
 
         it('imports a file from an older Mockoon version (migrated first)', async () => {

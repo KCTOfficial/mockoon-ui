@@ -6,7 +6,18 @@
   "latency": 0,
   "port": 7002,
   "hostname": "",
-  "folders": [],
+  "folders": [
+    {
+      "uuid": "d1262c5a-f3f0-4577-b06b-b4ad20dd03d3",
+      "name": "Wahana",
+      "children": [
+        {
+          "type": "route",
+          "uuid": "0070dd6c-7122-4073-ab65-3f6b14b26fbe"
+        }
+      ]
+    }
+  ],
   "routes": [
     {
       "uuid": "fdb12bb8-d41d-42f9-8822-56480816ed92",
@@ -209,8 +220,8 @@
       "uuid": "bfb2cddf-3ce1-4387-bddb-0369cd2afa07"
     },
     {
-      "type": "route",
-      "uuid": "0070dd6c-7122-4073-ab65-3f6b14b26fbe"
+      "type": "folder",
+      "uuid": "d1262c5a-f3f0-4577-b06b-b4ad20dd03d3"
     }
   ],
   "proxyMode": false,

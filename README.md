@@ -5,7 +5,16 @@
 </p>
 
 <p align="center">
-  A modern web-based UI for managing Mockoon mock API environments. Built with React 19, Vite, Hono, and Tailwind CSS.
+  <strong>The all-in-one, self-hosted web UI for Mockoon.</strong>
+</p>
+
+<p align="center">
+  Run and manage every mock API from your browser: OpenAPI import, folders, bulk copy/move between environments,
+  live request logs and a recycle bin that keeps your work safe. Docker-ready, with login built in.
+</p>
+
+<p align="center">
+  <sub>Community project, not affiliated with Mockoon.</sub>
 </p>
 
 <p align="center">
@@ -38,7 +47,7 @@
 
 - **Create & manage** - Several mock API environments side by side, each with its own port and mock server
 - **Duplicate** - Copy an environment in one click as `<name> (copy 1)`, on the next free port so both can run
-- **Import** - Upload a Mockoon environment (**JSON**) or an OpenAPI/Swagger spec (**OpenAPI**) to generate one
+- **Import** - Upload a Mockoon environment (**JSON**) or an OpenAPI/Swagger spec (**OpenAPI**) to generate one. A Mockoon file can become its own environment, or have its routes merged into an existing one (into any folder, or a new one)
 - **Export** - Download any environment as a Mockoon file, ready to import again or open in Mockoon desktop
 - **Server status at a glance** - Every environment in the sidebar shows whether its mock server is running, starting, crashed or stopped
 
@@ -48,8 +57,9 @@
 - **Folders** - Group routes in folders and subfolders; drag and drop to reorganise
 - **Resizable panels** - Drag the edge of the environments sidebar or the route list (200-480 px); widths are remembered
 - **Duplicate** - Copy a route (`/users-copy-1`) or a whole folder (`Users (copy 1)`) next to the original
-- **Copy or move to another environment** - Routes and folders, with the data buckets and callbacks they use
-- **Export & import routes** - Save a route or folder to a file named like `demo-shop-api-get-users.json` and import it into any environment, or into a new one
+- **Copy or move anywhere** - Routes and folders go to another environment or another folder of the same one, with the data buckets and callbacks they use; create the destination folder on the spot
+- **Bulk actions** - Select several routes and folders, then copy, move, export or delete them in one go
+- **Export & import routes** - Save a route or folder (or a whole selection) to a file named like `demo-shop-api-get-users.json` and import it into any environment and folder, or into a new environment
 - **Data buckets** - Reusable data for your responses
 
 ### Safe Deletes
@@ -256,22 +266,33 @@ Every route and folder has a **⋯** button (it appears on hover; on touch scree
 
 More ways to organise:
 
+- **Select (☑ button)** next to **+ ▾** turns on [bulk selection](#selecting-several-routes-and-folders)
 - **+ ▾ → Folder** in the route list adds a folder at the top level and opens its name for editing
 - **Drag and drop** a route or folder onto a folder, or onto the empty area below the list to bring it to the top level
 - The **filter** searches inside folders and opens the ones with matches
 
 Folders only group routes in the UI; they are saved in the environment file the same way Mockoon desktop saves them.
 
-#### Copy or move to another environment
+#### Selecting several routes and folders
 
-**⋯ → Copy to environment…** or **Move to environment…** opens a dialog that reads from top to bottom:
+Click the **☑** button in the route list header. Every row gets a checkbox and one toolbar appears:
+
+- Tick routes and folders, or click a row; **Select all** takes everything at the top level (while filtering: every matching route)
+- A selected folder brings everything inside it, so its contents show as ticked and greyed out
+- **Actions ▾** holds **Copy to…**, **Move to…**, **Export to file** and **Delete…**; the toolbar shows how many items are selected (hover for the details)
+- **×** (or switching environments) ends the selection
+
+#### Copy or move
+
+**⋯ → Copy to environment…** / **Move to environment…** on a row, or **Actions ▾ → Copy to… / Move to…** for a selection, opens a dialog that reads from top to bottom:
 
 1. **Action** - *Copy* adds a copy and leaves the original in place; *Move* removes it from where it is. The line under it says which
-2. **From** (grey, read-only) - the route or folder, and the environment, port and folder it is in now
-3. **To** (blue) - pick the target **Environment** and **Folder** (or *Top level*)
+2. **From** (grey, read-only) - the routes or folders, and the environment, port and folder they are in now
+3. **To** (blue) - pick the target **Environment** (the open one is listed last as *this environment*) and **Folder** (or *Top level*). **+ New folder** creates a folder inside the chosen one and puts everything in it
 4. Click **Copy now** / **Move now**
 
 - A folder travels with everything inside it, subfolders included
+- **Inside the same environment**, a move keeps the items as they are and only changes their folder (a folder cannot go into itself); a copy gives taken paths a `-copy-N` suffix so the routes do not clash
 - **Data buckets and callbacks** the routes use come along when the target does not have them yet, so `{{data 'users'}}` keeps working
 - Everything gets new IDs, so the same item can be copied twice
 - If the target already has a route with the same method and path, or a different bucket with the same ID, the dialog lists it after copying so you can check
@@ -279,7 +300,7 @@ Folders only group routes in the UI; they are saved in the environment file the 
 
 #### Export and import routes
 
-**⋯ → Export to file** downloads a route or folder (with the data buckets and callbacks it uses) as one file, named after where it came from:
+**⋯ → Export to file** downloads a route or folder (with the data buckets and callbacks it uses) as one file, named after where it came from. **Actions ▾ → Export to file** on a selection puts every selected item in one file, e.g. `demo-shop-api-3-items.json`.
 
 | Exported item          | File name                                 |
 | ---------------------- | ----------------------------------------- |
@@ -288,14 +309,17 @@ Folders only group routes in the UI; they are saved in the environment file the 
 | WebSocket `/live` route | `demo-shop-api-ws-live.json`              |
 | `Accounts` folder       | `demo-shop-api-folder-accounts.json`      |
 
-To import such a file:
+To import such a file (or a whole Mockoon environment file), pick it in one of these places. A dialog always asks **where it should go** before anything is saved:
 
-- **In the route list:** **+ ▾ → Import from file…** (top level), or a folder's **⋯ → Add to folder… → Import from file…** (into that folder)
-- **From the sidebar:** the **JSON** button recognises a routes export and asks **where the routes should go**:
-  - **Add to an existing environment** - pick the environment (the open one is preselected) and the folder
-  - **Create a new environment** - give it a name; it gets the next free port
+- **In the route list:** **+ ▾ → Import from file…** (top level), or a folder's **⋯ → Add to folder… → Import from file…**; the dialog starts on the open environment and that folder
+- **From the sidebar:** the **JSON** button
 
-A whole Mockoon environment file can also be imported into an existing environment from the route list; all its routes and folders are added. Files up to 10 MB are accepted, and each import gets new IDs, so the same file can be imported several times.
+| File                     | Options                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Routes export            | **Add to an existing environment** (environment + folder, or **+ New folder**) or **Create a new environment** (name it; next free port) |
+| Whole Mockoon environment | **Import as its own environment** (keeps its name, settings and port, or the next free port) or **Add its routes to an existing environment** (only routes and folders with the buckets and callbacks they use, into any folder or a new one) |
+
+Files up to 10 MB are accepted, and each import gets new IDs, so the same file can be imported several times.
 
 ### Mock Server Ports
 
@@ -337,7 +361,7 @@ A port that is allowed in the firewall but has no mock server running simply ref
 
 ### Importing Environments
 
-- **JSON** (sidebar) - upload an existing Mockoon environment file (`.json`). A routes export (see [Export and import routes](#export-and-import-routes)) opens a dialog that asks which environment the routes go to, or whether to create a new one
+- **JSON** (sidebar) - upload an existing Mockoon environment file (`.json`). A dialog asks whether it becomes its own environment or its routes join an existing one (and which folder); a routes export asks the same (see [Export and import routes](#export-and-import-routes))
 - **OpenAPI** (sidebar) - upload an OpenAPI/Swagger specification (`.json`, `.yaml`, `.yml`); routes are generated automatically
 
 ### Exporting an Environment
@@ -380,6 +404,7 @@ Every delete asks for confirmation in a dialog (**Cancel** or clicking outside c
 | Environment | **⋯ → Delete environment…** in the sidebar, or **Settings → Danger Zone** | Its port and that it goes to the recycle bin | ✓ |
 | Route       | **⋯ → Delete route** in the route list                  | Method, path and number of responses, e.g. `GET /users` and 2 responses | ✓ |
 | Folder      | **⋯ → Delete folder**                                   | Folder name; its routes and subfolders move up one level instead of being deleted | (nothing is deleted) |
+| Selection   | **Actions ▾ → Delete…** while [selecting](#selecting-several-routes-and-folders) | How many routes and folders; each folder goes **with everything in it** | ✓ (each item on its own) |
 | Response    | Trash icon next to the response tabs                    | The response label                                                     |                 |
 | Data bucket | × on hover in the data bucket list                      | The bucket name and the `{{data 'id'}}` reference that will break      |                 |
 
@@ -555,9 +580,10 @@ Routes and folders across environments (`itemType` is `route` or `folder`):
 | Method | Endpoint                               | Description                                                                                                         |
 | ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `POST` | `/api/environments/items/duplicate`    | Duplicate in place (`{ filename, itemType, itemUuid }`)                                                             |
-| `POST` | `/api/environments/transfer`           | Copy or move (`{ sourceFilename, targetFilename, itemType, itemUuid, mode: 'copy' \| 'move', targetFolderUuid? }`); returns both environments and `warnings` |
-| `GET`  | `/api/environments/items/export`       | Download as `<environment>-<item>.json` (`?filename=&itemType=&itemUuid=`)                                          |
-| `POST` | `/api/environments/items/import`       | Multipart `file` plus `filename` (+ `targetFolderUuid`) for an existing environment, or `newEnvironmentName` for a new one; max 10 MB |
+| `POST` | `/api/environments/transfer`           | Copy or move (`{ sourceFilename, targetFilename, mode: 'copy' \| 'move', itemType + itemUuid` or `items: [{ type, uuid }], targetFolderUuid?, newFolderName? }`); the target may be the source environment; returns both environments and `warnings` |
+| `GET`  | `/api/environments/items/export`       | Download as `<environment>-<item>.json` (`?filename=&itemType=&itemUuid=`), or several as `<environment>-<n>-items.json` (`?filename=&item=route:<uuid>&item=folder:<uuid>`) |
+| `POST` | `/api/environments/items/import`       | Multipart `file` plus `filename` (+ `targetFolderUuid`, `newFolderName`) for an existing environment, or `newEnvironmentName` for a new one; max 10 MB |
+| `POST` | `/api/environments/items/delete`       | Bulk delete to the recycle bin, one entry per item (`{ filename, items: [{ type, uuid }] }`); folders go with their contents |
 
 ### Action Endpoints
 

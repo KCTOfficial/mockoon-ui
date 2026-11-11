@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RouteList from '@/components/RouteList';
 import { Environment } from '@/types/mockoon';
@@ -198,10 +198,12 @@ describe('RouteList', () => {
         render(<RouteList {...props} environments={[makeEnv(), otherEnv]} onTransferred={onTransferred} activeEnv={makeEnv()} />);
 
         await choose(user, 'Actions for folder Users', 'Copy to environment…');
-        const dialog = screen.getByRole('dialog', { name: 'Copy folder to another environment' });
+        const dialog = screen.getByRole('dialog', { name: 'Copy folder' });
         expect(screen.getByRole('radio', { name: 'Copy' })).toHaveAttribute('aria-checked', 'true');
-        // Only the other environment is offered, and its folders
-        expect(Array.from((screen.getByLabelText('Environment') as HTMLSelectElement).options).map(o => o.text)).toEqual(['Billing (:7003)']);
+        // The other environment first (preselected), then this one for copying between its folders
+        expect(Array.from((screen.getByLabelText('Environment') as HTMLSelectElement).options).map(o => o.text))
+            .toEqual(['Billing (:7003)', 'Shop (:7002) · this environment']);
+        expect(screen.getByLabelText('Environment')).toHaveValue('billing.json');
         await user.selectOptions(screen.getByLabelText('Folder'), 'bf1');
         await user.click(screen.getByRole('button', { name: 'Copy now' }));
 
@@ -251,33 +253,35 @@ describe('RouteList', () => {
         click.mockRestore();
     });
 
-    it('imports a file into a folder from its menu', async () => {
+    it('hands a file picked in a folder to the import dialog, with that folder', async () => {
         const user = userEvent.setup();
-        const onEnvironmentSaved = jest.fn();
-        (global.fetch as jest.Mock).mockResolvedValue({
-            ok: true,
-            json: async () => ({ success: true, routeCount: 2, folderCount: 0, warnings: [], target: makeEnv() }),
-        });
-        const { container } = render(<RouteList {...props} onEnvironmentSaved={onEnvironmentSaved} activeEnv={makeEnv()} />);
+        const onImportFile = jest.fn();
+        const { container } = render(<RouteList {...props} onImportFile={onImportFile} activeEnv={makeEnv()} />);
 
         await choose(user, 'Actions for folder Users', 'Add to folder…');
         await user.click(screen.getByRole('menuitem', { name: /Import from file/ }));
-        const input = container.querySelector('input[type=file]') as HTMLInputElement;
-        fireEvent.change(input, { target: { files: [new File(['{}'], 'shop-get-users.json', { type: 'application/json' })] } });
+        const picked = new File(['{}'], 'shop-get-users.json', { type: 'application/json' });
+        fireEvent.change(container.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [picked] } });
 
-        await waitFor(() => expect(onEnvironmentSaved).toHaveBeenCalled());
-        const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
-        expect(url).toBe('/api/environments/items/import');
-        expect((init.body as FormData).get('filename')).toBe('shop.json');
-        expect((init.body as FormData).get('targetFolderUuid')).toBe('f1');
-        expect(props.notify).toHaveBeenCalledWith('Imported 2 routes from shop-get-users.json.', 'success');
+        expect(onImportFile).toHaveBeenCalledWith(picked, 'f1');
+        // Nothing is sent before the dialog asks where it goes
+        expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('shows the server error when an import is refused', async () => {
-        const { container } = render(<RouteList {...props} activeEnv={makeEnv()} />);
-        (global.fetch as jest.Mock).mockResolvedValue({ ok: false, json: async () => ({ error: 'The file is not valid JSON' }) });
-        fireEvent.change(container.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [new File(['x'], 'bad.json')] } });
-        await waitFor(() => expect(props.notify).toHaveBeenCalledWith('The file is not valid JSON', 'error'));
+    it('imports at the top level from the Add menu, and only offers import when it is handled', async () => {
+        const user = userEvent.setup();
+        const onImportFile = jest.fn();
+        const { container, rerender } = render(<RouteList {...props} activeEnv={makeEnv()} />);
+        await user.click(screen.getByRole('button', { name: 'Add new' }));
+        expect(screen.queryByRole('menuitem', { name: /Import from file/ })).not.toBeInTheDocument();
+        await user.keyboard('{Escape}');
+
+        rerender(<RouteList {...props} onImportFile={onImportFile} activeEnv={makeEnv()} />);
+        await user.click(screen.getByRole('button', { name: 'Add new' }));
+        await user.click(screen.getByRole('menuitem', { name: /Import from file/ }));
+        const picked = new File(['{}'], 'x.json');
+        fireEvent.change(container.querySelector('input[type=file]') as HTMLInputElement, { target: { files: [picked] } });
+        expect(onImportFile).toHaveBeenCalledWith(picked, null);
     });
 
     it('duplicates a route and opens the copy', async () => {
@@ -328,5 +332,203 @@ describe('RouteList', () => {
         await user.click(screen.getByRole('radio', { name: 'Copy' }));
         expect(dialog).toHaveTextContent('A copy is added to the target. "Shop" keeps the original.');
         expect(screen.getByRole('button', { name: 'Copy now' })).toBeInTheDocument();
+    });
+
+    describe('selection', () => {
+        const startSelecting = (user: ReturnType<typeof userEvent.setup>) =>
+            user.click(screen.getByRole('button', { name: 'Select routes and folders' }));
+        const toolbar = () => screen.getByRole('toolbar', { name: 'Bulk actions' });
+        const bulk = (user: ReturnType<typeof userEvent.setup>, item: string | RegExp) => choose(user, 'Actions for the selection', item);
+
+        it('selects routes and folders; what is inside a selected folder goes with it', async () => {
+            const user = userEvent.setup();
+            render(<RouteList {...props} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+
+            expect(toolbar()).toHaveTextContent('0 selected');
+            expect(screen.getByRole('button', { name: 'Actions for the selection' })).toBeDisabled();
+            // Row menus are off while selecting
+            expect(screen.queryByRole('button', { name: 'Actions for GET /health' })).not.toBeInTheDocument();
+
+            await user.click(screen.getByRole('checkbox', { name: 'Select folder Users' }));
+            const inner = screen.getByRole('checkbox', { name: 'Select GET /users' });
+            expect(inner).toBeChecked();
+            expect(inner).toBeDisabled();
+            expect(toolbar()).toHaveTextContent('1 selected');
+
+            // Clicking a row selects it instead of opening it
+            await user.click(screen.getByText('/health'));
+            expect(props.onSelectRoute).not.toHaveBeenCalled();
+            expect(screen.getByRole('checkbox', { name: 'Select GET /health' })).toBeChecked();
+            expect(toolbar()).toHaveTextContent('2 selected');
+            expect(within(toolbar()).getByTitle('1 route and 1 folder selected')).toBeInTheDocument();
+
+            // One dropdown holds the actions
+            await user.click(screen.getByRole('button', { name: 'Actions for the selection' }));
+            expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Copy to…', 'Move to…', 'Export to file', 'Delete…']);
+            await user.keyboard('{Escape}');
+
+            await user.click(within(toolbar()).getByRole('button', { name: 'Cancel selection' }));
+            expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        });
+
+        it('selects everything at the top level, or only matching routes while filtering', async () => {
+            const user = userEvent.setup();
+            render(<RouteList {...props} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+
+            await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+            expect(toolbar()).toHaveTextContent('2 selected');
+            expect(within(toolbar()).getByTitle('1 route and 1 folder selected')).toBeInTheDocument();
+            await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+            expect(toolbar()).toHaveTextContent('0 selected');
+
+            await user.type(screen.getByPlaceholderText('Filter routes'), 'users');
+            await user.click(screen.getByRole('checkbox', { name: 'Select all matching' }));
+            expect(toolbar()).toHaveTextContent('1 selected');
+            expect(screen.getByRole('checkbox', { name: 'Select GET /users' })).toBeChecked();
+        });
+
+        it('drops the selection when another environment opens', async () => {
+            const user = userEvent.setup();
+            const { rerender } = render(<RouteList {...props} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+            await user.click(screen.getByRole('checkbox', { name: 'Select GET /health' }));
+
+            rerender(<RouteList {...props} envFilename="billing.json" activeEnv={otherEnv} />);
+            expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+            rerender(<RouteList {...props} activeEnv={makeEnv()} />);
+            expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+        });
+
+        it('moves the selection into a new folder of the same environment', async () => {
+            const user = userEvent.setup();
+            const onTransferred = jest.fn();
+            const result = {
+                success: true, mode: 'move', itemUuid: 'r1', itemUuids: ['r1', 'f1'], folderUuid: 'nf', routeCount: 2, folderCount: 1,
+                bucketCount: 0, callbackCount: 0, warnings: [], source: makeEnv(), target: makeEnv(),
+            };
+            (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => result });
+            render(<RouteList {...props} environments={[makeEnv(), otherEnv]} onTransferred={onTransferred} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+            await user.click(screen.getByRole('checkbox', { name: 'Select GET /health' }));
+            await user.click(screen.getByRole('checkbox', { name: 'Select folder Users' }));
+            await bulk(user, 'Move to…');
+
+            const dialog = screen.getByRole('dialog', { name: 'Move 1 route and 1 folder' });
+            const from = within(dialog).getByRole('region', { name: 'From' });
+            expect(from).toHaveTextContent('GET /health');
+            expect(from).toHaveTextContent('Users1 route');
+            await user.selectOptions(screen.getByLabelText('Environment'), 'shop.json');
+            expect(dialog).toHaveTextContent('They move to the chosen folder of "Shop".');
+            // A folder cannot move into itself, so "Users" is not offered
+            expect(Array.from((screen.getByLabelText('Folder') as HTMLSelectElement).options).map(o => o.text)).toEqual(['Top level']);
+
+            await user.click(screen.getByRole('button', { name: /New folder/ }));
+            expect(screen.getByRole('button', { name: 'Move now' })).toBeDisabled();
+            await user.type(screen.getByLabelText('New folder name'), 'Archive');
+            expect(dialog).toHaveTextContent('Created inside the top level.');
+            await user.click(screen.getByRole('button', { name: 'Move now' }));
+
+            await waitFor(() => expect(onTransferred).toHaveBeenCalledWith(result));
+            expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toEqual({
+                sourceFilename: 'shop.json', targetFilename: 'shop.json',
+                items: [{ type: 'route', uuid: 'r1' }, { type: 'folder', uuid: 'f1' }],
+                mode: 'move', targetFolderUuid: null, newFolderName: 'Archive',
+            });
+            expect(props.notify).toHaveBeenCalledWith('Moved 2 routes and 1 folder to Shop.', 'success');
+            expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+        });
+
+        it('copies the selection to a folder of another environment', async () => {
+            const user = userEvent.setup();
+            (global.fetch as jest.Mock).mockResolvedValue({
+                ok: true,
+                json: async () => ({ success: true, mode: 'copy', routeCount: 2, folderCount: 0, warnings: [], source: makeEnv(), target: otherEnv }),
+            });
+            render(<RouteList {...props} environments={[makeEnv(), otherEnv]} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+            await user.click(screen.getByRole('checkbox', { name: 'Select GET /health' }));
+            await user.click(screen.getByRole('checkbox', { name: 'Select GET /users' }));
+            await bulk(user, 'Copy to…');
+
+            expect(screen.getByRole('dialog', { name: 'Copy 2 routes' })).toBeInTheDocument();
+            await user.selectOptions(screen.getByLabelText('Folder'), 'bf1');
+            await user.click(screen.getByRole('button', { name: 'Copy now' }));
+
+            await waitFor(() => expect(props.notify).toHaveBeenCalledWith('Copied 2 routes to Billing.', 'success'));
+            expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toMatchObject({
+                targetFilename: 'billing.json', mode: 'copy', targetFolderUuid: 'bf1',
+                items: [{ type: 'route', uuid: 'r1' }, { type: 'route', uuid: 'r2' }],
+            });
+        });
+
+        it('exports the selection as one file', async () => {
+            const user = userEvent.setup();
+            const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+            URL.createObjectURL = jest.fn(() => 'blob:x');
+            URL.revokeObjectURL = jest.fn();
+            (global.fetch as jest.Mock).mockResolvedValue({
+                ok: true,
+                blob: async () => new Blob(['{}']),
+                headers: new Headers({ 'content-disposition': 'attachment; filename="shop-2-items.json"' }),
+            });
+            render(<RouteList {...props} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+            await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+            await bulk(user, 'Export to file');
+
+            await waitFor(() => expect(click).toHaveBeenCalled());
+            expect((global.fetch as jest.Mock).mock.calls[0][0])
+                .toBe('/api/environments/items/export?filename=shop.json&item=route%3Ar1&item=folder%3Af1');
+            await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument());
+            click.mockRestore();
+        });
+
+        it('deletes the selection to the recycle bin after confirming', async () => {
+            const user = userEvent.setup();
+            const onEnvironmentSaved = jest.fn();
+            const onTrashChanged = jest.fn();
+            const saved = makeEnv({ routes: [], folders: [], rootChildren: [] } as Partial<Environment>);
+            (global.fetch as jest.Mock).mockResolvedValue({
+                ok: true,
+                json: async () => ({ success: true, routeCount: 2, folderCount: 1, routeUuids: ['r1', 'r2'], target: saved }),
+            });
+            render(<RouteList {...props} activeRouteId="r2" onEnvironmentSaved={onEnvironmentSaved} onTrashChanged={onTrashChanged} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+            await user.click(screen.getByRole('checkbox', { name: 'Select GET /health' }));
+            await user.click(screen.getByRole('checkbox', { name: 'Select folder Users' }));
+            await bulk(user, 'Delete…');
+
+            const confirm = screen.getByRole('alertdialog', { name: 'Delete 1 route and 1 folder' });
+            expect(confirm).toHaveTextContent('each folder with everything in it');
+            expect(confirm).toHaveTextContent('Recycle bin, where each one can be restored');
+            await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
+
+            await waitFor(() => expect(onEnvironmentSaved).toHaveBeenCalledWith(saved));
+            const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+            expect(url).toBe('/api/environments/items/delete');
+            expect(JSON.parse(init.body)).toEqual({ filename: 'shop.json', items: [{ type: 'route', uuid: 'r1' }, { type: 'folder', uuid: 'f1' }] });
+            expect(onTrashChanged).toHaveBeenCalled();
+            // The open route was inside the deleted folder
+            expect(props.onSelectRoute).toHaveBeenCalledWith('');
+            expect(props.notify).toHaveBeenCalledWith('Moved 1 route and 1 folder to the recycle bin', 'success');
+            expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+            expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+        });
+
+        it('keeps the selection and reports a refused delete', async () => {
+            const user = userEvent.setup();
+            (global.fetch as jest.Mock).mockResolvedValue({ ok: false, json: async () => ({ error: 'Route or folder not found' }) });
+            render(<RouteList {...props} activeEnv={makeEnv()} />);
+            await startSelecting(user);
+            await user.click(screen.getByRole('checkbox', { name: 'Select GET /health' }));
+            await bulk(user, 'Delete…');
+            await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+            await waitFor(() => expect(props.notify).toHaveBeenCalledWith('Route or folder not found', 'error'));
+            expect(toolbar()).toHaveTextContent('1 selected');
+        });
     });
 });

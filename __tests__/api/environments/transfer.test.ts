@@ -191,9 +191,159 @@ describe('/api/environments/transfer', () => {
         expect(read('target.json').data.map(b => b.id).sort()).toEqual(['ord1', 'usr1']);
     });
 
+    describe('several items', () => {
+        it('moves routes and a folder to another environment in one go, in the order given', async () => {
+            const { status, data } = await post({
+                items: [{ type: 'folder', uuid: ids.f1 }, { type: 'route', uuid: ids.http }, { type: 'route', uuid: ids.crud }],
+                mode: 'move',
+                targetFolderUuid: ids.tFolder,
+            });
+
+            expect(status).toBe(200);
+            expect(data).toMatchObject({ routeCount: 4, folderCount: 2, folderUuid: ids.tFolder });
+            expect(data.itemUuids).toHaveLength(3);
+            const source = read('source.json');
+            expect(source.routes).toEqual([]);
+            expect(source.folders).toEqual([]);
+            expect(source.rootChildren).toEqual([]);
+            const target = read('target.json');
+            expect(target.folders.find(f => f.uuid === ids.tFolder)!.children.map(c => c.uuid)).toEqual(data.itemUuids);
+            expectValid('source.json');
+            expectValid('target.json');
+        });
+
+        it('takes an item inside a listed folder along with the folder, once', async () => {
+            const { status, data } = await post({
+                items: [{ type: 'route', uuid: ids.nested }, { type: 'folder', uuid: ids.f1 }, { type: 'folder', uuid: ids.f1 }],
+                mode: 'copy',
+            });
+
+            expect(status).toBe(200);
+            expect(data).toMatchObject({ routeCount: 2, folderCount: 2 });
+            expect(data.itemUuids).toHaveLength(1);
+            expect(read('target.json').routes.filter(r => r.endpoint === 'nested')).toHaveLength(1);
+        });
+
+        it('changes nothing when one of the items is missing', async () => {
+            const before = [fs.readFileSync(file('source.json'), 'utf-8'), fs.readFileSync(file('target.json'), 'utf-8')];
+            const { status } = await post({ items: [{ type: 'route', uuid: ids.http }, { type: 'route', uuid: randomUUID() }], mode: 'move' });
+            expect(status).toBe(404);
+            expect([fs.readFileSync(file('source.json'), 'utf-8'), fs.readFileSync(file('target.json'), 'utf-8')]).toEqual(before);
+        });
+
+        it.each([[[]], ['nope'], [[null]]])('refuses items %j', async (items) => {
+            expect((await post({ items, mode: 'copy' })).status).toBe(items.length === 1 && items[0] === null ? 404 : 400);
+        });
+    });
+
+    describe('into a new folder', () => {
+        it('creates it inside the chosen folder of the target and puts the items in it', async () => {
+            const { status, data } = await post({
+                items: [{ type: 'route', uuid: ids.http }, { type: 'route', uuid: ids.crud }],
+                mode: 'copy',
+                targetFolderUuid: ids.tFolder,
+                newFolderName: '  Copied  ',
+            });
+
+            expect(status).toBe(200);
+            const target = read('target.json');
+            const created = target.folders.find(f => f.uuid === data.folderUuid)!;
+            expect(created.name).toBe('Copied');
+            expect(created.children.map(c => c.uuid)).toEqual(data.itemUuids);
+            expect(target.folders.find(f => f.uuid === ids.tFolder)!.children).toEqual([{ type: 'folder', uuid: created.uuid }]);
+            expectValid('target.json');
+        });
+
+        it('creates it at the top level without a parent', async () => {
+            const { data } = await post({ itemType: 'route', itemUuid: ids.http, mode: 'move', newFolderName: 'Users' });
+            const target = read('target.json');
+            expect(target.rootChildren).toContainEqual({ type: 'folder', uuid: data.folderUuid });
+            expect(target.folders.find(f => f.uuid === data.folderUuid)!.children).toEqual([{ type: 'route', uuid: data.itemUuid }]);
+        });
+
+        it.each([[''], ['   '], ['x'.repeat(101)], [42]])('refuses the name %j and changes nothing', async (newFolderName) => {
+            const before = [fs.readFileSync(file('source.json'), 'utf-8'), fs.readFileSync(file('target.json'), 'utf-8')];
+            const { status, data } = await post({ itemType: 'route', itemUuid: ids.http, mode: 'move', newFolderName });
+            expect(status).toBe(400);
+            expect(data.error).toBe('Folder name must be 1-100 characters');
+            expect([fs.readFileSync(file('source.json'), 'utf-8'), fs.readFileSync(file('target.json'), 'utf-8')]).toEqual(before);
+        });
+    });
+
+    describe('inside the same environment', () => {
+        const same = (body: Partial) => post({ targetFilename: 'source.json', ...body });
+
+        it('moves items into a folder, keeping their uuids and their buckets', async () => {
+            const { status, data } = await same({
+                items: [{ type: 'route', uuid: ids.http }, { type: 'route', uuid: ids.crud }],
+                mode: 'move',
+                targetFolderUuid: ids.f2,
+            });
+
+            expect(status).toBe(200);
+            expect(data).toMatchObject({ itemUuids: [ids.http, ids.crud], warnings: [], routeCount: 2 });
+            const env = read('source.json');
+            expect(env.routes).toHaveLength(4);
+            expect(env.data).toHaveLength(4);
+            expect(env.rootChildren).toEqual([{ type: 'folder', uuid: ids.f1 }]);
+            expect(env.folders.find(f => f.uuid === ids.f2)!.children.map(c => c.uuid)).toEqual([ids.nested, ids.http, ids.crud]);
+            expect(data.source).toEqual(data.target);
+            expectValid('source.json');
+        });
+
+        it('moves a nested folder to the top level, and a new folder made for it', async () => {
+            const { data } = await same({ itemType: 'folder', itemUuid: ids.f2, mode: 'move', newFolderName: 'Archive' });
+            const env = read('source.json');
+            const archive = env.folders.find(f => f.name === 'Archive')!;
+            expect(data.folderUuid).toBe(archive.uuid);
+            expect(env.rootChildren).toContainEqual({ type: 'folder', uuid: archive.uuid });
+            expect(archive.children).toEqual([{ type: 'folder', uuid: ids.f2 }]);
+            expect(env.folders.find(f => f.uuid === ids.f1)!.children).toEqual([{ type: 'route', uuid: ids.ws }]);
+            expectValid('source.json');
+        });
+
+        it('refuses to move a folder into itself or a subfolder, without creating the new folder', async () => {
+            const before = fs.readFileSync(file('source.json'), 'utf-8');
+            for (const targetFolderUuid of [ids.f1, ids.f2]) {
+                const { status, data } = await same({ itemType: 'folder', itemUuid: ids.f1, mode: 'move', targetFolderUuid, newFolderName: 'X' });
+                expect(status).toBe(400);
+                expect(data.error).toBe('A folder cannot be moved into itself');
+            }
+            expect(fs.readFileSync(file('source.json'), 'utf-8')).toBe(before);
+        });
+
+        it('copies with "-copy-N" paths and new uuids, and no warnings', async () => {
+            const { status, data } = await same({
+                items: [{ type: 'route', uuid: ids.http }, { type: 'folder', uuid: ids.f2 }],
+                mode: 'copy',
+                newFolderName: 'Copies',
+            });
+
+            expect(status).toBe(200);
+            expect(data.warnings).toEqual([]);
+            const env = read('source.json');
+            expect(env.routes.map(r => r.endpoint).sort()).toEqual(['nested', 'nested-copy-1', 'orders', 'socket', 'users', 'users-copy-1']);
+            const copies = env.folders.find(f => f.uuid === data.folderUuid)!;
+            expect(copies.children.map(c => c.uuid)).toEqual(data.itemUuids);
+            expect(data.itemUuids).not.toContain(ids.http);
+            // Buckets and callbacks are already there
+            expect(env.data).toHaveLength(4);
+            expect(env.callbacks).toHaveLength(1);
+            expectValid('source.json');
+        });
+
+        it('copies a folder into itself without looping', async () => {
+            const { status } = await same({ itemType: 'folder', itemUuid: ids.f2, mode: 'copy', targetFolderUuid: ids.f2 });
+            expect(status).toBe(200);
+            const env = read('source.json');
+            expect(env.folders).toHaveLength(3);
+            expect(env.routes.filter(r => r.endpoint.startsWith('nested'))).toHaveLength(2);
+            expectValid('source.json');
+        });
+    });
+
     describe('refuses', () => {
         it.each([
-            ['the same environment', { targetFilename: 'source.json', itemType: 'route', itemUuid: ids.http, mode: 'copy' }, 400],
             ['an unknown mode', { itemType: 'route', itemUuid: ids.http, mode: 'link' }, 400],
             ['an unknown item type', { itemType: 'bucket', itemUuid: ids.http, mode: 'copy' }, 400],
             ['an unknown route', { itemType: 'route', itemUuid: randomUUID(), mode: 'move' }, 404],

@@ -34,13 +34,16 @@ interface ActionMenuProps {
     items: ActionMenuItem[];
     /** Extra classes for the button (e.g. show on row hover) */
     className?: string;
+    /** Button content instead of "..."; the button then looks like a regular small button */
+    children?: ReactNode;
+    disabled?: boolean;
 }
 
 /**
  * Primer-style ActionMenu: a "..." button opening a list of icon + label items. The list is portalled and
  * fixed-positioned so scrolling containers never clip it; clicks inside never reach the row behind it.
  */
-export default function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
+export default function ActionMenu({ label, items, className = '', children, disabled }: ActionMenuProps) {
     const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
@@ -108,14 +111,17 @@ export default function ActionMenu({ label, items, className = '' }: ActionMenuP
                     }
                 }}
                 draggable={false}
-                className={`btn btn-invisible btn-icon btn-sm !w-6 !h-6 flex-shrink-0 aria-expanded:opacity-100 ${className}`}
+                disabled={disabled}
+                className={children
+                    ? `btn btn-sm flex-shrink-0 ${className}`
+                    : `btn btn-invisible btn-icon btn-sm !w-6 !h-6 flex-shrink-0 aria-expanded:opacity-100 ${className}`}
                 title={label}
                 aria-label={label}
                 aria-haspopup="menu"
                 aria-expanded={!!anchor}
                 aria-controls={anchor ? menuId : undefined}
             >
-                <KebabHorizontalIcon size={16} />
+                {children ?? <KebabHorizontalIcon size={16} />}
             </button>
 
             {anchor && createPortal(
